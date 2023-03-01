@@ -1,12 +1,14 @@
-//SPDX-License-Identifier: Unlicense
+//SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+import "./Project.sol";
+
 contract ProjectFactory {
-    event ProjectCreated(address newProject); // Note: you should add additional data fields in this event
-
-    function create() external {
-        // TODO: implement me!
-
-        emit ProjectCreated(address(0x0)); // TODO: replace me with the actual Project's address
+    event ProjectCreated(address newProject);
+    address[] public deployedProjects;
+    function create(uint256 _fundingGoal) external {
+        address newProject = address( new Project(msg.sender, _fundingGoal));
+        deployedProjects.push(newProject);
+        emit ProjectCreated(newProject);
     }
 }

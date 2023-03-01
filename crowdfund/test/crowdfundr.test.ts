@@ -119,7 +119,7 @@ describe("Crowdfundr", () => {
     // If you do not see an error in the `it` test below you must enable ESLint in your editor. You are likely
     // missing important bugs in your tests and contracts without it.
     it("Flags floating promises", async () => {
-      const txReceiptUnresolved = await projectFactory.connect(alice).create();
+      const txReceiptUnresolved = await projectFactory.connect(alice).create(100);
       expect(txReceiptUnresolved.wait()).to.be.reverted;
     });
 
