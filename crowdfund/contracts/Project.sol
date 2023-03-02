@@ -10,6 +10,7 @@ contract Project is ERC721 {
     uint256 public deadline;
     uint256 public totalAmountRaised;
     mapping(address => uint256) public contributors;
+    mapping(address => uint256) public badgesEarned;
     bool public isCanceled;
     uint256 public constant minContributionAllowed = 0.01 ether;
     uint256 public totalBadgesAwarded;
@@ -26,6 +27,8 @@ contract Project is ERC721 {
     event NewContribution(address _sender, uint256 _amount);
     event FundWithdrawn(address _sender, uint256 _amount);
     event RefundSent(address _sender, uint256 _amount);
+    event NewBadgesMinted(address _sender, uint256 _number);
+    event ProjectCanceled(address _sender);
 
     modifier _onlyOwner() {
         require(msg.sender == owner, "Access restricted");
@@ -57,13 +60,11 @@ contract Project is ERC721 {
         );
         totalAmountRaised += msg.value;
         contributors[msg.sender] += msg.value;
+        if (contributors[msg.sender] >= 1 ether) {
+            badgesEarned[msg.sender] = contributors[msg.sender] / 1 ether;
+        }
         // @dev solidity round towards 0 also
         emit NewContribution(msg.sender, msg.value);
-        uint256 numOfBadgesToMint = ((contributors[msg.sender] -
-            (balanceOf(msg.sender) * 1 ether)) / 1 ether);
-        if (numOfBadgesToMint >= 1) {
-            mintNFTBadges(msg.sender, numOfBadgesToMint);
-        }
     }
 
     function withdraw(uint256 _amount) public _onlyOwner _reentrant {
@@ -93,16 +94,24 @@ contract Project is ERC721 {
         emit RefundSent(msg.sender, refundAmount);
     }
 
-    function mintNFTBadges(address _sender, uint256 _number) private {
-        for (uint256 i = 1; i <= _number; i++) {
+    // think about whether I need to verify who is calling this function
+    function claimNFTBadges() public _reentrant {
+        uint256 numOfBadgesToMint = ((badgesEarned[msg.sender] -
+            (balanceOf(msg.sender))) / 1);
+        require(
+            numOfBadgesToMint >= 1,
+            "Contribution min level not met to receive badges"
+        );
+        for (uint256 i = 1; i <= numOfBadgesToMint; i++) {
             uint256 tokenId = totalBadgesAwarded + i;
-            _safeMint(_sender, tokenId);
+            _safeMint(msg.sender, tokenId);
         }
-        totalBadgesAwarded += _number;
-        // emit an event that badges has been created
+        totalBadgesAwarded += numOfBadgesToMint;
+        emit NewBadgesMinted(msg.sender, numOfBadgesToMint);
     }
 
     function cancel() public _onlyOwner _isActive {
         isCanceled = true;
+        emit ProjectCanceled(msg.sender);
     }
 }

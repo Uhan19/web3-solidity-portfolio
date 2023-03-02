@@ -196,6 +196,23 @@ describe("Crowdfundr", () => {
   });
 
   describe("Project: Additional Tests", () => {
+    let projectAddress: string;
+    let project: Project;
+    let fundingGoal: BigNumber;
+
+    beforeEach(async () => {
+      // TODO: Your ProjectFactory contract will need a `create` method, to
+      //       create new Projects
+      fundingGoal = parseEther("100");
+      const txReceiptUnresolved = await projectFactory.create(fundingGoal);
+      const txReceipt = await txReceiptUnresolved.wait();
+
+      projectAddress = txReceipt.events![0].args![0];
+      project = (await ethers.getContractAt(
+        "Project",
+        projectAddress
+      )) as Project;
+    });
     /*
       TODO: You may add additional tests here if you need to
 
@@ -204,6 +221,75 @@ describe("Crowdfundr", () => {
 
       DO NOT: Delete or change the test names for the tests provided below
     */
+    describe("Additional - NFT badge tests", () => {
+      it("Allows contributors to get a refund first and then claim badges if a project fails", async () => {
+        const contribution = parseEther("1");
+        await project.connect(alice).contribute({ value: contribution });
+        expect(await project.contributors(alice.address)).to.equal(
+          parseEther("1")
+        );
+        expect(await project.badgesEarned(alice.address)).to.deep.equal(1);
+        expect(await project.totalBadgesAwarded()).to.deep.equal(0);
+        expect(await project.balanceOf(alice.address)).to.deep.equal(0);
+        await timeTravel(100000000);
+        await project.connect(alice).refund();
+        expect(await project.contributors(alice.address)).to.deep.equal(0);
+        await project.connect(alice).claimNFTBadges();
+        expect(await project.totalBadgesAwarded()).to.deep.equal(1);
+        expect(await project.balanceOf(alice.address)).to.deep.equal(1);
+      });
+
+      it("Emits Transfer and NewBadgesMinted events when users claim their NFTs", async () => {
+        const contribution = parseEther("1");
+        await project.connect(alice).contribute({ value: contribution });
+        const tx = await project.connect(alice).claimNFTBadges();
+        const receipt = await tx.wait();
+        const transferEvent = receipt.events![0];
+        const mintEvent = receipt.events![1];
+        expect(transferEvent.event).to.equal("Transfer");
+        expect(mintEvent.event).to.equal("NewBadgesMinted");
+        expect(mintEvent.args![0]).to.equal(alice.address);
+        expect(mintEvent.args![1]).to.deep.equal(1);
+      });
+
+      it("Allows contributors to make multi contibutions and badge claims", async () => {
+        const contribution = parseEther("1");
+        const secondContribution = parseEther("2");
+        await project.connect(alice).contribute({ value: contribution });
+        expect(await project.badgesEarned(alice.address)).to.equal(1);
+        expect(await project.totalBadgesAwarded()).to.equal(0);
+        expect(await project.balanceOf(alice.address)).to.equal(0);
+        await project.connect(alice).claimNFTBadges();
+        expect(await project.totalBadgesAwarded()).to.equal(1);
+        expect(await project.balanceOf(alice.address)).to.equal(1);
+
+        await project.connect(alice).contribute({ value: secondContribution });
+        expect(await project.badgesEarned(alice.address)).to.equal(3);
+        expect(await project.totalBadgesAwarded()).to.equal(1);
+        expect(await project.balanceOf(alice.address)).to.equal(1);
+        await project.connect(alice).claimNFTBadges();
+        expect(await project.totalBadgesAwarded()).to.equal(3);
+        expect(await project.balanceOf(alice.address)).to.equal(3);
+      });
+    });
+
+    describe("Addtional - refund tests", () => {
+      it("Allows refunds after a project is canceled", async () => {
+        const contribution = parseEther("1");
+        await project.connect(alice).contribute({ value: contribution });
+        expect(await project.contributors(alice.address)).to.equal(
+          parseEther("1")
+        );
+        expect(await project.totalAmountRaised()).to.equal(parseEther("1"));
+        await project.connect(deployer).cancel();
+        await expect(
+          project.connect(alice).contribute({ value: contribution })
+        ).to.be.revertedWith("Action is not allowed at this time");
+        await project.connect(alice).refund();
+        expect(await project.contributors(alice.address)).to.deep.equal(0);
+        expect(await project.totalAmountRaised()).to.deep.equal(0);
+      });
+    });
   });
 
   describe("Project", () => {
@@ -312,18 +398,12 @@ describe("Crowdfundr", () => {
 
         it("Prevents additional contributions after 30 days have passed since Project instance deployment", async () => {
           const contribution = parseEther("1");
-          const total = parseEther("2");
           await project.connect(alice).contribute({ value: contribution });
           expect(await project.contributors(alice.address)).to.equal(
             contribution
           );
           expect(await project.totalAmountRaised()).to.equal(contribution);
-          const deadline = await (await project.deadline()).toNumber();
-          timeTravelTo(deadline);
-          await project.connect(alice).contribute({ value: contribution });
-          expect(await project.contributors(alice.address)).to.equal(total);
-          expect(await project.totalAmountRaised()).to.equal(total);
-          timeTravel(1);
+          await timeTravel(1000000000);
           await expect(
             project.connect(bob).contribute({ value: parseEther("1") })
           ).to.be.revertedWith("Action is not allowed at this time");
@@ -551,16 +631,34 @@ describe("Crowdfundr", () => {
     });
 
     describe("Cancelations (creator-triggered project failures)", () => {
+      const contribution = parseEther("90");
       it("Allows the creator to cancel the project if < 30 days since deployment has passed", async () => {
-        expect(true).to.be.false;
+        await project.connect(alice).contribute({ value: contribution });
+        expect(await project.contributors(alice.address)).to.equal(
+          contribution
+        );
+        expect(await project.totalAmountRaised()).to.equal(contribution);
+        await project.connect(deployer).cancel();
+        await expect(
+          project.connect(alice).contribute({ value: parseEther("1") })
+        ).to.be.revertedWith("Action is not allowed at this time");
       });
 
       it("Prevents the creator from canceling the project if at least 30 days have passed", async () => {
-        expect(true).to.be.false;
+        await timeTravel(1000000000);
+        await expect(project.connect(deployer).cancel()).to.be.revertedWith(
+          "Action is not allowed at this time"
+        );
       });
 
       it("Prevents the creator from canceling the project if it has already reached it's funding goal", async () => {
-        expect(true).to.be.false;
+        await project.connect(alice).contribute({ value: parseEther("100") });
+        expect(await project.fundingGoal()).to.equal(
+          await project.totalAmountRaised()
+        );
+        await expect(project.connect(deployer).cancel()).to.be.revertedWith(
+          "Action is not allowed at this time"
+        );
       });
 
       it("Prevents the creator from canceling the project if it has already been canceled", async () => {
@@ -568,51 +666,152 @@ describe("Crowdfundr", () => {
         // again, it may have minimal impact on the contract's state, but it would emit a second
         // project cancelation event. This is undesirable because it may cause a discrepancy for
         // offchain applications that attempt to read when a project was canceled from the event log.
-        expect(true).to.be.false;
+        await project.connect(deployer).cancel();
+        await expect(project.connect(deployer).cancel()).to.be.revertedWith(
+          "Action is not allowed at this time"
+        );
       });
 
       it("Prevents non-creators from canceling the project", async () => {
-        expect(true).to.be.false;
+        await expect(project.connect(alice).cancel()).to.be.revertedWith(
+          "Access restricted"
+        );
       });
 
-      it('Emits a "FILL_ME_IN" event after a project is canceled by the creator', async () => {
-        expect(true).to.be.false;
+      it('Emits a "ProjectCanceled" event after a project is canceled by the creator', async () => {
+        const tx = await project.connect(deployer).cancel();
+        const receipt = await tx.wait();
+        const event = receipt.events![0];
+        expect(event.event).to.equal("ProjectCanceled");
+        expect(event.args![0]).to.equal(deployer.address);
       });
     });
 
     describe("NFT Contributor Badges", () => {
       it("Awards a contributor with a badge when they make a single contribution of at least 1 ETH", async () => {
-        expect(true).to.be.false;
+        const contribution = parseEther("1");
+        await project.connect(alice).contribute({ value: contribution });
+        expect(await project.badgesEarned(alice.address)).to.equal(1);
+        expect(await project.totalBadgesAwarded()).to.equal(0);
+        await project.connect(alice).claimNFTBadges();
+        expect(await project.totalBadgesAwarded()).to.equal(1);
+        expect(await project.balanceOf(alice.address)).to.equal(1);
       });
 
       it("Awards a contributor with a badge when they make multiple contributions to a single project that sum to at least 1 ETH", async () => {
-        expect(true).to.be.false;
+        const firstContribution = parseEther("0.2");
+        const secondContribution = parseEther("0.8");
+        await project.connect(alice).contribute({ value: firstContribution });
+        expect(await project.badgesEarned(alice.address)).to.equal(0);
+        await project.connect(alice).contribute({ value: secondContribution });
+        expect(await project.badgesEarned(alice.address)).to.equal(1);
+        await project.connect(alice).claimNFTBadges();
+        expect(await project.totalBadgesAwarded()).to.equal(1);
+        expect(await project.balanceOf(alice.address)).to.equal(1);
       });
 
       it("Does not award a contributor with a badge if their total contribution to a single project sums to < 1 ETH", async () => {
-        expect(true).to.be.false;
+        const contribution = parseEther("0.2");
+        await project.connect(alice).contribute({ value: contribution });
+        expect(await project.badgesEarned(alice.address)).to.equal(0);
+        await expect(
+          project.connect(alice).claimNFTBadges()
+        ).to.be.revertedWith(
+          "Contribution min level not met to receive badges"
+        );
+        expect(await project.totalBadgesAwarded()).to.equal(0);
+        expect(await project.balanceOf(alice.address)).to.equal(0);
       });
 
       it("Awards a contributor with a second badge when their total contribution to a single project sums to at least 2 ETH", async () => {
         // Note: One address can receive multiple badges for a single project,
-        //       but they should only receive 1 badge per 1 ETH contributed.
-        expect(true).to.be.false;
+        //       but they should receive 1 badge per 1 ETH contributed.
+        const firstContribution = parseEther("1");
+        const secondContribution = parseEther("1");
+        await project.connect(alice).contribute({ value: firstContribution });
+        expect(await project.badgesEarned(alice.address)).to.equal(1);
+        await project.connect(alice).contribute({ value: secondContribution });
+        expect(await project.badgesEarned(alice.address)).to.equal(2);
+        await project.connect(alice).claimNFTBadges();
+        expect(await project.totalBadgesAwarded()).to.equal(2);
+        expect(await project.balanceOf(alice.address)).to.equal(2);
       });
 
       it("Does not award a contributor with a second badge if their total contribution to a single project is > 1 ETH but < 2 ETH", async () => {
-        expect(true).to.be.false;
+        const contribution = parseEther("1.2");
+        await project.connect(alice).contribute({ value: contribution });
+        expect(await project.badgesEarned(alice.address)).to.equal(1);
+        await project.connect(alice).claimNFTBadges();
+        expect(await project.totalBadgesAwarded()).to.equal(1);
+        expect(await project.balanceOf(alice.address)).to.equal(1);
       });
 
       it("Awards contributors with different NFTs for contributions to different projects", async () => {
-        expect(true).to.be.false;
+        const contributionToProjectOne = parseEther("1");
+        const contributionToProjectTwo = parseEther("2");
+
+        fundingGoal = parseEther("100");
+        const txReceiptUnresolved = await projectFactory.create(fundingGoal);
+        const txReceipt = await txReceiptUnresolved.wait();
+
+        const projectAddressTwo = txReceipt.events![0].args![0];
+        const projectTwo = (await ethers.getContractAt(
+          "Project",
+          projectAddressTwo
+        )) as Project;
+
+        await project
+          .connect(alice)
+          .contribute({ value: contributionToProjectOne });
+        expect(await project.badgesEarned(alice.address)).to.equal(1);
+        await projectTwo
+          .connect(alice)
+          .contribute({ value: contributionToProjectTwo });
+        expect(await projectTwo.badgesEarned(alice.address)).to.equal(2);
+        await project.connect(alice).claimNFTBadges();
+        expect(await project.totalBadgesAwarded()).to.equal(1);
+        expect(await project.balanceOf(alice.address)).to.equal(1);
+        await projectTwo.connect(alice).claimNFTBadges();
+        expect(await projectTwo.totalBadgesAwarded()).to.equal(2);
+        expect(await projectTwo.balanceOf(alice.address)).to.equal(2);
       });
 
       it("Allows contributor badge holders to transfer the NFT to another address", async () => {
-        expect(true).to.be.false;
+        const contribution = parseEther("1");
+        await project.connect(alice).contribute({ value: contribution });
+        expect(await project.badgesEarned(alice.address)).to.equal(1);
+        expect(await project.totalBadgesAwarded()).to.equal(0);
+        expect(await project.balanceOf(alice.address)).to.equal(0);
+        await project.connect(alice).claimNFTBadges();
+        expect(await project.totalBadgesAwarded()).to.equal(1);
+        expect(await project.balanceOf(alice.address)).to.equal(1);
+        await project
+          .connect(alice)
+          .transferFrom(alice.address, bob.address, 1);
+        expect(await project.balanceOf(bob.address)).to.equal(1);
+        expect(await project.balanceOf(alice.address)).to.equal(0);
+        expect(await project.totalBadgesAwarded()).to.equal(1);
       });
 
       it("Allows contributor badge holders to transfer the NFT to another address even after its related project fails", async () => {
-        expect(true).to.be.false;
+        const contribution = parseEther("1");
+        await project.connect(alice).contribute({ value: contribution });
+        expect(await project.badgesEarned(alice.address)).to.equal(1);
+        expect(await project.totalBadgesAwarded()).to.equal(0);
+        expect(await project.balanceOf(alice.address)).to.equal(0);
+        await project.connect(alice).claimNFTBadges();
+        expect(await project.totalBadgesAwarded()).to.equal(1);
+        expect(await project.balanceOf(alice.address)).to.equal(1);
+        await project.connect(deployer).cancel();
+        await expect(
+          project.connect(alice).contribute({ value: contribution })
+        ).to.be.revertedWith("Action is not allowed at this time");
+        await project
+          .connect(alice)
+          .transferFrom(alice.address, bob.address, 1);
+        expect(await project.balanceOf(bob.address)).to.equal(1);
+        expect(await project.balanceOf(alice.address)).to.equal(0);
+        expect(await project.totalBadgesAwarded()).to.equal(1);
       });
     });
   });
