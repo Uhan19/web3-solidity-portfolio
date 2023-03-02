@@ -2,6 +2,7 @@
 pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "hardhat/console.sol";
 
 contract Project is ERC721 {
     address public owner;
@@ -10,8 +11,8 @@ contract Project is ERC721 {
     uint256 public totalAmountRaised;
     mapping(address => uint256) public contributors;
     bool public isCanceled;
-    uint256 public minContributionAllowed;
-    uint256 totalBadgesAwarded;
+    uint256 public constant minContributionAllowed = 0.01 ether;
+    uint256 public totalBadgesAwarded;
     bool private isBalanceLocked;
 
     constructor(address _sender, uint256 _fundingGoal) ERC721("Fundr", "FDR") {
@@ -22,8 +23,12 @@ contract Project is ERC721 {
         isCanceled = false;
     }
 
+    event NewContribution(address _sender, uint256 _amount);
+    event FundWithdrawn(address _sender, uint256 _amount);
+    event RefundSent(address _sender, uint256 _amount);
+
     modifier _onlyOwner() {
-        require(msg.sender == owner);
+        require(msg.sender == owner, "Access restricted");
         _;
     }
 
@@ -31,7 +36,8 @@ contract Project is ERC721 {
         require(
             !isCanceled &&
                 block.timestamp <= deadline &&
-                totalAmountRaised < fundingGoal
+                totalAmountRaised < fundingGoal,
+            "Action is not allowed at this time"
         );
         _;
     }
@@ -45,27 +51,31 @@ contract Project is ERC721 {
     receive() external payable {}
 
     function contribute() public payable _isActive {
-        require(msg.value >= 0.01 ether, "Must send at least 0.01 ETH");
+        require(
+            msg.value >= minContributionAllowed,
+            "Must send at least 0.01 ETH"
+        );
         totalAmountRaised += msg.value;
         contributors[msg.sender] += msg.value;
-        // @dev solidity round towards 0
-        uint256 numOfBadgesToMint = (contributors[msg.sender] - balanceOf(msg.sender)) / 1 ether;
+        // @dev solidity round towards 0 also
+        emit NewContribution(msg.sender, msg.value);
+        uint256 numOfBadgesToMint = ((contributors[msg.sender] -
+            (balanceOf(msg.sender) * 1 ether)) / 1 ether);
         if (numOfBadgesToMint >= 1) {
             mintNFTBadges(msg.sender, numOfBadgesToMint);
         }
-        // emit event indicate that a contribution has happened
     }
 
     function withdraw(uint256 _amount) public _onlyOwner _reentrant {
         require(
             totalAmountRaised >= fundingGoal,
-            "Funding goal has not been reached yet!"
+            "Funding goal has not been reached"
         );
         require(_amount <= totalAmountRaised, "Not enough funds!");
         totalAmountRaised -= _amount;
         (bool success, ) = msg.sender.call{value: _amount}("");
         require(success, "Fund transfer failed");
-        // emit an event indicating that transfer was successful
+        emit FundWithdrawn(msg.sender, _amount);
     }
 
     function refund() public _reentrant {
@@ -80,10 +90,10 @@ contract Project is ERC721 {
         contributors[msg.sender] -= refundAmount;
         (bool success, ) = msg.sender.call{value: refundAmount}("");
         require(success, "Refund failed");
-        // emit an event that a refund as occured
+        emit RefundSent(msg.sender, refundAmount);
     }
 
-    function mintNFTBadges(address _sender, uint256 _number) public _isActive {
+    function mintNFTBadges(address _sender, uint256 _number) private {
         for (uint256 i = 1; i <= _number; i++) {
             uint256 tokenId = totalBadgesAwarded + i;
             _safeMint(_sender, tokenId);
