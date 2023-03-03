@@ -11,10 +11,12 @@ See [README-Setup.md](./README-Setup.md)
 The goal here is to help you think through the possible edge cases of all your contracts -->
 
 - There should be a `ProjectFactory` contract with a `create` method that deploys instances of the `Project` contract using the factory create pattern.
+
   - Each `Project` instance should be able to receive contributions independent of the others.
   - Each project has a goal amount, in ETH, which cannot be changed after a project gets created.
 
 - The requirements for contributions are as follows:
+
   - The contribution amount must be at least 0.01 ETH.
   - There is no upper limit on contribution size.
   - Anyone can contribute to the project, including the creator.
@@ -22,6 +24,7 @@ The goal here is to help you think through the possible edge cases of all your c
   - No one can withdraw their funds until the project either fails or gets cancelled.
 
 - The requirements for contributor badges are as follows:
+
   - Each project should use its own NFT contract.
   - An address earns 1 badge for each 1 ETH in their **total contribution** for that project.
   - One address can earn multiple badges for a single project, but should only earn 1 badge per 1 ETH.
@@ -32,19 +35,21 @@ The goal here is to help you think through the possible edge cases of all your c
   - Regardless of the end result of the crowdfunding effort, the project's badges are left alone. They should still be transferable.
 
 - The terminal states of a project are as follows:
+
   - If the project is not fully funded within 30 days:
+
     - The project goal is considered to have failed.
     - No one can contribute anymore.
     - Contributors can get a refund of their contribution.
 
   - Once a project becomes fully funded:
+
     - No one else can contribute (however, the last contribution can go over the goal).
     - The creator cannot cancel the project.
     - The creator can withdraw any amount of contributed funds.
 
   - Before the 30 days are over and if the project is not yet fully funded, the creator can cancel the project.
     - This should have the same effect as a project failing to reach its goal within the 30 days.
-
 
 ## Code Coverage Report
 
@@ -53,6 +58,29 @@ The goal here is to help you think through the possible edge cases of all your c
 <!-- https://learn.0xmacro.com/training/project-crowdfund/p/4 -->
 
 ## Design Exercise Answer
+
+Answer: To be able to have the Crowdfundr smart contract support contribution tiers without having to creat multiple contracts, a mapping of the contributors's address and their contribution tiers could be implemented. We can create a struct to keep track of whether the NFT has been claimed yet.
+
+    struct ContributorTier {
+      uint256 contributionTier
+      bool hasClaimedTierNFT
+    }
+    mapping(address => ContributorTier) public contributorTiers;
+
+Depending on how many contribution tiers we would like we could create a unique id for each tier (e.g. 1, 2, 3). Depending on the minimum requirement of each tier, when a contributor sends funds to the contract, we can check their contribution balance and update their tier mapping.
+
+Assuming that their tier NFTs are not minted until the project has ended, we can create a function:
+
+    function claimTierNFT () external {
+      // check if the contributor has claimed their NFT or not: !contributorTiers[msg.sender].hasClaimedTierNFT
+      // change their has claimed status to true
+      // check for contributor's tier: contributorTiers[msg.sender]
+      // mint NFT depending on the tier that is returned (use exsting tokenId logic)
+    }
+
+if we keep the same logic that each time 1ETH is contributed by the customer, we credit them with 1 NFT, then we would need to account for that logic. When they claim their badges, we can check whether they have claimed their tier NFT and adjust the number of badge NFT minted accordingly.
+
+With this high level structure, the contract will be able to support contribution tiers without creating separate NFT contracts.
 
 <!-- Answer the Design Exercise. -->
 <!-- In your answer: (1) Consider the tradeoffs of your design, and (2) provide some pseudocode, or a diagram, to illustrate how one would get started. -->
