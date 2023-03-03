@@ -4,6 +4,9 @@ pragma solidity 0.8.17;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "hardhat/console.sol";
 
+/// @title Crowdfundr
+/// @author Yuehan Duan
+/// @notice This is a contract that will allow the user to create a crowdfunding campaign.
 contract Project is ERC721 {
     address public owner;
     uint256 public fundingGoal;
@@ -18,6 +21,7 @@ contract Project is ERC721 {
     bool private isBalanceLocked;
 
     constructor(address _sender, uint256 _fundingGoal) ERC721("Fundr", "FDR") {
+        require(_sender != address(0), "Creator cannot be the zero address");
         owner = _sender;
         fundingGoal = _fundingGoal;
         deadline = block.timestamp + 30 days;
@@ -31,11 +35,13 @@ contract Project is ERC721 {
     event NewBadgesMinted(address _sender, uint256 _number);
     event ProjectCanceled(address _sender);
 
+    /// @dev checking that the sender is the owner of the contract
     modifier _onlyOwner() {
         require(msg.sender == owner, "Access restricted");
         _;
     }
 
+    /// @dev check if the contract is active, based on project deadline, fundGoal status, and if the contract is canceled
     modifier _isActive() {
         require(
             !isCanceled &&
@@ -46,6 +52,7 @@ contract Project is ERC721 {
         _;
     }
 
+    /// @dev prevent reentrancy attacks
     modifier _reentrant() {
         isBalanceLocked = true;
         _;
@@ -54,7 +61,8 @@ contract Project is ERC721 {
 
     receive() external payable {}
 
-    function contribute() public payable _isActive {
+    /// @dev allows users to contribute to the campaign if they meet the 0.01 ETH min
+    function contribute() external payable _isActive {
         require(
             msg.value >= minContributionAllowed,
             "Must send at least 0.01 ETH"
@@ -64,11 +72,11 @@ contract Project is ERC721 {
         if (contributors[msg.sender] >= 1 ether) {
             badgesEarned[msg.sender] = contributors[msg.sender] / 1 ether;
         }
-        // @dev solidity round towards 0 also
         emit NewContribution(msg.sender, msg.value);
     }
 
-    function withdraw(uint256 _amount) public _onlyOwner _reentrant {
+    /// @dev only allows the owner to withdraw the funds if the campaign is successful
+    function withdraw(uint256 _amount) external _onlyOwner _reentrant {
         require(
             totalAmountRaised >= fundingGoal,
             "Funding goal has not been reached"
@@ -83,7 +91,8 @@ contract Project is ERC721 {
         emit FundWithdrawn(msg.sender, _amount);
     }
 
-    function refund() public _reentrant {
+    /// @dev only allows contributors to get refund if the campaign failed or is canceled
+    function refund() external _reentrant {
         require(
             (totalAmountRaised < fundingGoal && block.timestamp > deadline) ||
                 isCanceled,
@@ -98,8 +107,8 @@ contract Project is ERC721 {
         emit RefundSent(msg.sender, refundAmount);
     }
 
-    // think about whether I need to verify who is calling this function
-    function claimNFTBadges() public _reentrant {
+    /// @dev allows contributors to claim NFT badges, if they have contributed at least 1 ETH
+    function claimNFTBadges() external _reentrant {
         uint256 numOfBadgesToMint = ((badgesEarned[msg.sender] -
             (balanceOf(msg.sender))) / 1);
         require(
@@ -114,7 +123,8 @@ contract Project is ERC721 {
         emit NewBadgesMinted(msg.sender, numOfBadgesToMint);
     }
 
-    function cancel() public _onlyOwner _isActive {
+    /// @dev allows the owner to cancel the campaign
+    function cancel() external _onlyOwner _isActive {
         isCanceled = true;
         emit ProjectCanceled(msg.sender);
     }
