@@ -221,6 +221,38 @@ describe("Crowdfundr", () => {
 
       DO NOT: Delete or change the test names for the tests provided below
     */
+    describe("Check project vulnerabilities", () => {
+      it("Defends against reentrancy attacks", async () => {
+        const Attacker = await ethers.getContractFactory("AttackingProject");
+        const attacker = await Attacker.deploy(projectAddress);
+        await attacker.deployed();
+
+        const contribution = parseEther("90");
+        await project.connect(alice).contribute({ value: contribution });
+        expect(await project.contributors(alice.address)).to.equal(
+          contribution
+        );
+        expect(await project.totalAmountRaised()).to.equal(contribution);
+        await attacker.contribute({ value: parseEther("1") });
+        expect(await project.totalAmountRaised()).to.equal(parseEther("91"));
+        expect(await project.contributors(attacker.address)).to.equal(
+          parseEther("1")
+        );
+        await project.connect(deployer).cancel();
+        await expect(attacker.reentrantRefund()).to.be.revertedWith(
+          "Refund failed"
+        );
+      });
+
+      it("Contract can handle large donations", async () => {
+        const maliciousContribution = parseEther("1000");
+        await project
+          .connect(alice)
+          .contribute({ value: maliciousContribution });
+        expect(await project.totalAmountRaised()).to.equal(parseEther("1000"));
+      });
+    });
+
     describe("Additional - NFT badge tests", () => {
       it("Allows contributors to get a refund first and then claim badges if a project fails", async () => {
         const contribution = parseEther("1");
@@ -466,7 +498,9 @@ describe("Crowdfundr", () => {
           );
           expect(await project.totalAmountRaised()).to.equal(contribution);
           await project.connect(deployer).withdraw(parseEther("10"));
-          expect(await project.totalAmountRaised()).to.equal(parseEther("90"));
+          expect(await project.totalAmountWithdrawn()).to.equal(
+            parseEther("10")
+          );
         });
 
         it("Allows the creator to withdraw the entire contribution balance", async () => {
@@ -475,7 +509,9 @@ describe("Crowdfundr", () => {
           );
           expect(await project.totalAmountRaised()).to.equal(contribution);
           await project.connect(deployer).withdraw(parseEther("100"));
-          expect(await project.totalAmountRaised()).to.equal(0);
+          expect(await project.totalAmountWithdrawn()).to.equal(
+            parseEther("100")
+          );
         });
 
         it("Allows the creator to make multiple withdrawals", async () => {
@@ -484,16 +520,24 @@ describe("Crowdfundr", () => {
           );
           expect(await project.totalAmountRaised()).to.equal(contribution);
           await project.connect(deployer).withdraw(parseEther("10"));
-          expect(await project.totalAmountRaised()).to.equal(parseEther("90"));
-
-          // NEED TO IMPLEMENT LOGIC TO LET THE OWNER WITHDRAWAL MULTIPLE TIMES
-
-          // await project.connect(deployer).withdraw(parseEther("20"));
-          // expect(await project.totalAmountRaised()).to.equal(parseEther("70"));
-          // await project.connect(deployer).withdraw(parseEther("30"));
-          // expect(await project.totalAmountRaised()).to.equal(parseEther("40"));
-          // await project.connect(deployer).withdraw(parseEther("40"));
-          // expect(await project.totalAmountRaised()).to.equal(0);
+          expect(await project.totalAmountWithdrawn()).to.equal(
+            parseEther("10")
+          );
+          await project.connect(deployer).withdraw(parseEther("20"));
+          expect(await project.totalAmountWithdrawn()).to.equal(
+            parseEther("30")
+          );
+          await project.connect(deployer).withdraw(parseEther("30"));
+          expect(await project.totalAmountWithdrawn()).to.equal(
+            parseEther("60")
+          );
+          await project.connect(deployer).withdraw(parseEther("40"));
+          expect(await project.totalAmountWithdrawn()).to.equal(
+            parseEther("100")
+          );
+          await expect(
+            project.connect(deployer).withdraw(parseEther("1"))
+          ).to.be.revertedWith("Not enough funds!");
         });
 
         it("Prevents the creator from withdrawing more than the contribution balance", async () => {

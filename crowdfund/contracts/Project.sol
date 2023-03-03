@@ -9,6 +9,7 @@ contract Project is ERC721 {
     uint256 public fundingGoal;
     uint256 public deadline;
     uint256 public totalAmountRaised;
+    uint256 public totalAmountWithdrawn;
     mapping(address => uint256) public contributors;
     mapping(address => uint256) public badgesEarned;
     bool public isCanceled;
@@ -72,8 +73,11 @@ contract Project is ERC721 {
             totalAmountRaised >= fundingGoal,
             "Funding goal has not been reached"
         );
-        require(_amount <= totalAmountRaised, "Not enough funds!");
-        totalAmountRaised -= _amount;
+        require(
+            _amount <= totalAmountRaised - totalAmountWithdrawn,
+            "Not enough funds!"
+        );
+        totalAmountWithdrawn += _amount;
         (bool success, ) = msg.sender.call{value: _amount}("");
         require(success, "Fund transfer failed");
         emit FundWithdrawn(msg.sender, _amount);
