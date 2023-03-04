@@ -21,21 +21,34 @@ Audit of **cryptonomicon46's** "Crowdfund" project
 
 ## Severity: Medium
 
-### **[M-1]** uint256`goalAmount` multiplied by large number
+**N/A**
 
 ## Severity: Low
 
-### **[L-1]** Unused immutable `owner`
+## **[L-1]** receive function has been implemented without any logic in it.
 
-### **[L-2]** Redundancy within `numProjects` and `proj_arr.length`
+In the `receive` function on lines 62, you have:
+
+```solidity
+    receive() external payable {}
+```
+
+The project constructor doesn't indicate a 'payable' modifer. So the 'receive' function technically doesn't do anything.
+It would've made sense to call the 'contribute' function in this fallback function.
+But since the visibility of the 'contribute' function is 'external' even this wouldn't work.
+It's recommended to delete this function from the contract.
+
+This is low impact and doesn't cause any loss of funds or incorrect business logic.
 
 ## Code Quality
 
-### **[CQ-1]** Unused event `Unauthorized`
+### **[CQ-1]** nat-spec comments
 
-### **[CQ-2]** Requirement of having `proj_arr`, `projToIndex` and `numProjects`
+Although the code is simple to understand, it would be good practice implement natspec comments on top of the external/public functions like 'create' which requires an input parameter. For example.
 
-### **[CQ-3]** Function `numberOfProjects` is redundant
+///@notice 'create' function creates and deploys a new instance of the Project contract.
+///@param "\_fundingGoal' is the input goal amount to raise in ether
+///@dev emits a 'ProjectCreated' event with the address of the new project.
 
 ---
 
@@ -53,26 +66,11 @@ Audit of **cryptonomicon46's** "Crowdfund" project
 
 ### **[L-1]** `checkStage` modifier can change state
 
-### **[L-2]** `projectTotal` is unnecessary or can be simplified
-
-### **[L-3]** Unclear purpose of `_owner` and `_transferOwnership`
-
-### **[L-4]** `contributed` is unnecessary
-
-### **[L-5]** Unnecessary multiple calls to `_hasClaimableNFTs`
-
-### **[L-6]** `contributorsRefund` can be reordered to make Check-Effects-Pattern (CEI) pattern more obvious
+obvious
 
 ## Code Quality
 
-### **[CQ-1]** Incorrect comment
+### **[CQ-1]** nat-spec comment format
 
-### **[CQ-2]** Break apart amount of logic handled by `_updateAndReturnStage` function
-
-### **[CQ-3]** `creatorWithdraws` does not require reentrancy check
-
-### **[CQ-4]** `claimNFT` does not require reentrancy check nor `onlyContributors` modifier
-
-### **[CQ-5]** `contributorsRefund` does not require `onlyContributors` modifier
-
-### **[CQ-6]** Remove `indexed amount` from events
+This format helps anyone looking at an external/public function to quickly understand everything related to the function. Like input parameters and their types. The returned variables and their type.
+Any emitted events or possible reverts.
