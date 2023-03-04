@@ -25,21 +25,6 @@ Audit of **cryptonomicon46's** "Crowdfund" project
 
 ## Severity: Low
 
-## **[L-1]** receive function has been implemented without any logic in it.
-
-In the `receive` function on lines 62, you have:
-
-```solidity
-    receive() external payable {}
-```
-
-The project constructor doesn't indicate a 'payable' modifer. So the 'receive' function technically doesn't do anything.
-It would've made sense to call the 'contribute' function in this fallback function.
-But since the visibility of the 'contribute' function is 'external' even this wouldn't work.
-It's recommended to delete this function from the contract.
-
-This is low impact and doesn't cause any loss of funds or incorrect business logic.
-
 ## Code Quality
 
 ### **[CQ-1]** nat-spec comments
@@ -82,17 +67,66 @@ The following correction needs to be implemented to make the reentrancy guard re
     }
 ```
 
+This function has been applied to the following external functions
+'refund'
+'claimNFTBadges'
+'withdraw'
 
+References:
+https://docs.soliditylang.org/en/v0.8.18/smtchecker.html#external-calls-and-reentrancy
 
 ## Severity: Medium
 
-**N/A**
+## **[M-1]** receive function has been implemented without any logic in it.
+
+In the `receive` function on lines 62, you have:
+
+```solidity
+    receive() external payable {}
+```
+
+The project constructor doesn't indicate a 'payable' modifer. So the 'receive' function technically doesn't do anything.
+It would've made sense to call the 'contribute' function in this fallback function.
+But since the visibility of the 'contribute' function is 'external' even this wouldn't work.
+It's recommended to delete this function from the contract.
+
+This is low impact and doesn't cause any loss of funds or incorrect business logic.
 
 ## Severity: Low
 
-### **[L-1]** `checkStage` modifier can change state
+### **[L-1]** 'badgesEarned' calculation
 
-obvious
+In the 'contribute' function on lines 72,73 you have
+
+```
+ if (contributors[msg.sender] >= 1 ether) {
+            badgesEarned[msg.sender] = contributors[msg.sender] / 1 ether;
+}
+
+```
+
+Here the number of badges earned is calculated on an on going basis as and when the contributor donates more funds. And as long as the donated funds are over '1 ether'.
+
+The calculated 'badgesEarned' could've then be directly used in the 'claimNFTBadges' function on lines 111,113 instead of having to check the 'balanceOf(msg.sender)'.
+Since the intiail balance of the 'msg.sender' would be zero before calling the 'claimNFTBadges' function.
+
+Instead, the 'badgesEarned' calculation from lines 72,73 could've been directly used to check the 'require' condition on lines 114,117.
+
+This redundancy doesn't cause any loss of funds or NFTs. But is redundant logic that makes the function more complicated than it should be.
+
+### **[L-2]** 'totalBadgesAwarded' variable is redundant in the 'claimNFTBadges' function
+
+In the 'claimNFTBadges' function on lines 119,122 you have
+
+```
+        for (uint256 i = 1; i <= numOfBadgesToMint; i++) {
+            uint256 tokenId = totalBadgesAwarded + i;
+            _safeMint(msg.sender, tokenId);
+        }
+        totalBadgesAwarded += numOfBadgesToMint;
+```
+
+The variable 'totalBadgesAwarded' serves no purpose for accounting, as this has already been captured in the 'badgesEarned' variable. This simply adds to the gas on the computation.
 
 ## Code Quality
 
