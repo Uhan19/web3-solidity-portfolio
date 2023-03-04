@@ -2,7 +2,6 @@ Audit of **UHAN19's** "Crowdfund" project
 
 - Auditor: Sand (Sandip Nallani) [@cryptonomicon46](https://github.com/cryptonomicon46)
 - Date: 3rd March 2023
-- Comments:
 
 ---
 
