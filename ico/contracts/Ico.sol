@@ -16,6 +16,8 @@ contract ICO {
 
     uint8 public constant TOKEN_REDEEM_RATIO = 5;
     uint256 public totalContribution;
+    uint256 maxTotalSupply = 500000;
+    uint256 initialSupply = 150000;
 
     bool public isPaused;
 
@@ -27,17 +29,12 @@ contract ICO {
     event TokenRedeemed(address, uint256);
     event ICOPhaseChanged(Phases);
 
-    constructor(
-        address[] memory _seedWhiteList,
-        address _treasury,
-        uint256 _maxTotalSupply,
-        uint256 _initialSupply
-    ) {
+    constructor(address[] memory _seedWhiteList, address _treasury) {
         owner = msg.sender;
         for (uint256 i = 0; i < _seedWhiteList.length; i++) {
             seedWhiteList[_seedWhiteList[i]] = true;
         }
-        spacecoin = new SpaceCoin(_treasury, _maxTotalSupply, _initialSupply);
+        spacecoin = new SpaceCoin(_treasury);
     }
 
     /// @dev make sure the msg.sender is the owner of the contract

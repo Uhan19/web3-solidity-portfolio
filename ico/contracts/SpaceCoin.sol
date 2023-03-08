@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract SpaceCoin is ERC20 {
     address public treasury;
     address public owner;
+    uint256 maxTotalSupply = 500000;
+    uint256 initialSupply = 150000;
 
     bool public taxEnabled;
 
@@ -19,16 +21,12 @@ contract SpaceCoin is ERC20 {
         _;
     }
 
-    constructor(
-        address _treasury,
-        uint256 _maxTotalSupply,
-        uint256 _initialSupply
-    ) ERC20("SpaceCoin", "SPC") {
+    constructor(address _treasury) ERC20("SpaceCoin", "SPC") {
         treasury = _treasury;
         owner = msg.sender;
 
-        _mint(_treasury, (_maxTotalSupply - _initialSupply) * 10 ** 18);
-        _mint(address(this), _initialSupply * 10 ** 18);
+        _mint(_treasury, (maxTotalSupply - initialSupply) * 10 ** 18);
+        _mint(address(this), initialSupply * 10 ** 18);
     }
 
     function toggleTax() external _onlyOwner {
