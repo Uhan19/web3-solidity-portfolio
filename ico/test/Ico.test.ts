@@ -98,13 +98,6 @@ describe("ICO", () => {
       "SpaceCoin",
       await ico.SPC_ADDRESS()
     );
-    // const SpaceCoin = await ethers.getContractFactory("SpaceCoin");
-    // const spaceCoin: SpaceCoin = (await SpaceCoin.deploy(
-    //   deployer.address,
-    //   treasury.address,
-    //   ico.address
-    // )) as SpaceCoin;
-    // await spaceCoin.deployed();
 
     return {
       ico,

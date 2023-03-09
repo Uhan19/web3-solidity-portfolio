@@ -1,16 +1,20 @@
-const ethers = require("ethers");
+import { BigNumber, ethers } from "ethers";
 
-// import IcoJSON from '../../artifacts/contracts/Ico.sol/Ico.json';
-// import SpaceCoinJSON from '../../artifacts/contracts/SpaceCoin.sol/SpaceCoin.json';
+import IcoJSON from "../../artifacts/contracts/Ico.sol/Ico.json";
+import SpaceCoinJSON from "../../artifacts/contracts/SpaceCoin.sol/SpaceCoin.json";
 
 const provider = new ethers.providers.Web3Provider(window.ethereum);
 const signer = provider.getSigner();
 
-// const icoAddr = '0xb0385916a6422ba9058A77C4CdE228E5b322EC35';
-// const icoContract = new ethers.Contract(icoAddr, IcoJSON.abi, provider);
+const icoAddr = "0xB9f69c009f1a3ca687B6C2CfF6E52B261dce0d56";
+const icoContract = new ethers.Contract(icoAddr, IcoJSON.abi, provider);
 
-// const spaceCoinAddr = '0x123b31a295a7eE3b6b49f193f2543eC5405813D6';
-// const spaceCoinContract = new ethers.Contract(spaceCoinAddr, SpaceCoinJSON.abi, provider);
+const spaceCoinAddr = "0x8e2CF944EC2d304C4cc8B47DB15C5f5325a4c2D5";
+const spaceCoinContract = new ethers.Contract(
+  spaceCoinAddr,
+  SpaceCoinJSON.abi,
+  provider
+);
 
 async function connectToMetamask() {
   try {
@@ -28,11 +32,32 @@ ico_spc_buy.addEventListener("submit", async (e) => {
   console.log("Buying", eth, "eth");
 
   await connectToMetamask();
-  // TODO: Call icoContract.contribute function (very similar to your test code!)
-
-  // TODO: update the displayed amount of SPC that is left to be claimed
-  ico_spc_left.innerHTML = "42"; // TODO: this is not the correct value, update it!
-  ico_spc_earned.innerHTML = "42"; // TODO: this is not the correct value, update it!
-
-  // TODO: update the ico_error HTML element if an error occurs
+  try {
+    const unconfirmedTx = await icoContract
+      .connect(signer)
+      .contribute({ value: eth });
+    await unconfirmedTx.wait();
+    console.log(
+      "contirbutions",
+      ethers.utils.formatEther(
+        BigNumber.from(
+          await icoContract.contributions(await signer.getAddress())
+        )
+      )
+    );
+    ico_spc_left.innerHTML = ethers.utils.formatEther(
+      ethers.utils
+        .parseEther("150000")
+        .sub(BigNumber.from(await icoContract.totalContributions()).mul(5))
+    );
+    ico_spc_earned.innerHTML = ethers.utils.formatEther(
+      BigNumber.from(
+        await icoContract.contributions(await signer.getAddress())
+      ).mul(5)
+    );
+    ico_error.innerHTML = "";
+  } catch (err) {
+    console.log("err", err);
+    ico_error.innerHTML = err.reason;
+  }
 });
