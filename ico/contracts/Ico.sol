@@ -4,6 +4,9 @@ pragma solidity 0.8.17;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./SpaceCoin.sol";
 
+/// @title ICO contract for SpaceCoin
+/// @notice this contract is responsible for managing the ICO
+/// @dev allows owner to move ICO phase forward, pause the ICO, allows contributors to contribute and redeem SPC tokens
 contract ICO {
     enum Phases {
         SEED,
@@ -14,7 +17,7 @@ contract ICO {
     address public immutable SPC_ADDRESS;
     Phases public currentPhase;
 
-    uint8 public immutable TOKEN_REDEEM_RATIO = 5;
+    uint256 public immutable TOKEN_REDEEM_RATIO = 5;
     uint256 public totalContributions;
 
     bool public isPaused;
@@ -27,6 +30,9 @@ contract ICO {
     event TokenRedeemed(address, uint256);
     event PhaseAdvanced(Phases);
 
+    /// @param _seedWhiteList list of addresses that are allowed to contribute during the seed phase
+    /// @param _treasury address of the treasury contract
+    /// @dev deploys a new SpaceCoin contract and sets the owner of the ICO to the deployer
     constructor(address[] memory _seedWhiteList, address _treasury) {
         OWNER = msg.sender;
         for (uint256 i = 0; i < _seedWhiteList.length; i++) {
@@ -48,6 +54,7 @@ contract ICO {
         _;
     }
 
+    /// @notice allows the owner to advance ICO phase
     /// @dev owner of the ICO can move phase forward, but not back
     function advanceICOPhase() external _onlyOwner {
         require(currentPhase != Phases.OPEN, "ICO is already in open phase");
@@ -62,12 +69,14 @@ contract ICO {
         emit PauseToggled(isPaused);
     }
 
-    /// @dev let investor contribute ETH to the ICO based on phase requirements
+    /// @notice let investor contribute ETH to the ICO based on phase requirements
+    /// @dev whitelist only during seed phase, each phase has an individual limit, except open phase. All phases have a total limit
     function contribute() public payable _onlyNotPaused {
         require(
             totalContributions + msg.value <= 30000 ether,
             "Total ICO contribution limit met"
         );
+        require(msg.value > 0, "Contribution amount must be greater than 0");
         if (currentPhase == Phases.SEED) {
             require(
                 seedWhiteList[msg.sender],
@@ -92,7 +101,8 @@ contract ICO {
         emit ContributionMade(msg.sender, msg.value);
     }
 
-    /// @dev allows contributors to redeem their SPC tokens after the ICO is moved to the OPEN phase
+    /// @notice allows contributors to redeem their SPC tokens after the ICO is moved to the OPEN phase
+    /// @dev call transfer from the SpaceCoin contract to transfer the tokens to the contributor
     function redeemSPC() public _onlyNotPaused {
         require(
             currentPhase == Phases.OPEN,

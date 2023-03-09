@@ -157,7 +157,7 @@ describe("ICO", () => {
     });
 
     it("Should advance phase when called by owner", async () => {
-      const { ico, deployer } = await loadFixture(setupFixture);
+      const { ico } = await loadFixture(setupFixture);
 
       expect(await ico.currentPhase()).to.equal(0);
       await ico.advanceICOPhase();
@@ -167,6 +167,18 @@ describe("ICO", () => {
       await expect(ico.advanceICOPhase()).to.be.revertedWith(
         "ICO is already in open phase"
       );
+    });
+
+    it("Should allow owner to advance phase when project is paused", async () => {
+      const { ico } = await loadFixture(setupFixture);
+      expect(await ico.currentPhase()).to.equal(0);
+      expect(await ico.isPaused()).to.be.false;
+      await ico.togglePauseState();
+      expect(await ico.isPaused()).to.be.true;
+      await ico.advanceICOPhase();
+      expect(await ico.currentPhase()).to.equal(1);
+      await ico.advanceICOPhase();
+      expect(await ico.currentPhase()).to.equal(2);
     });
 
     it("Event 'PhaseAdvanced' should be emitted when phase is advanced", async () => {
@@ -217,10 +229,18 @@ describe("ICO", () => {
 
     it("Revert if the contributor is not on the whitelist during Seed Phase", async () => {
       const { ico, hacker } = await loadFixture(setupFixture);
+      const amount = ethers.utils.parseEther("10");
+      await expect(
+        ico.connect(hacker).contribute({ value: amount })
+      ).to.be.revertedWith("Contributor is not on the whitelist");
+    });
 
-      await expect(ico.connect(hacker).contribute()).to.be.revertedWith(
-        "Contributor is not on the whitelist"
-      );
+    it("Revert if the contributor send 0 ETH", async () => {
+      const { ico, alice } = await loadFixture(setupFixture);
+      const amount = ethers.utils.parseEther("0");
+      await expect(
+        ico.connect(alice).contribute({ value: amount })
+      ).to.be.revertedWith("Contribution amount must be greater than 0");
     });
 
     it("Should allow contributors to contribute in the seed phase", async () => {
@@ -241,7 +261,7 @@ describe("ICO", () => {
       ).to.be.revertedWith("Individual contribution limit met");
     });
 
-    it("Should not allow total contributions to exceed the max total limit during Seed Phase", async () => {
+    it("Should not allow total contributions to exceed the seed total limit during Seed Phase", async () => {
       const { ico } = await loadFixture(setupFixture);
       const signers = await ethers.getSigners();
       const seedLimit = ethers.utils.parseEther("15000");
@@ -307,8 +327,6 @@ describe("ICO", () => {
         ico.connect(alice).contribute({ value: amount })
       ).to.be.revertedWith("Individual contribution limit met");
     });
-
-    // write a test that checks if the total contributions exceed the max total limit during the General Phase
 
     it("Should not let Seed contributors that exceeded the General Phase limit contribute during General Phase", async () => {
       const { ico, alice } = await loadFixture(setupFixture);
