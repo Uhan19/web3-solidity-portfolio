@@ -69,58 +69,238 @@ describe("SpaceCoin", () => {
   // `npx hardhat test --parallel` without the error-prone side-effects
   // that come from using mocha's `beforeEach`
   async function setupFixture() {
-    const [deployer, alice, bob]: SignerWithAddress[] =
+    const [deployer, alice, bob, treasury]: SignerWithAddress[] =
       await ethers.getSigners();
 
     // NOTE: You may need to pass arguments to the `deploy` function, if your
     //       ICO contract's constructor has input parameters
     const ICO = await ethers.getContractFactory("ICO");
-    const ico: ICO = (await ICO.deploy(/* FILL_ME_IN: */)) as ICO;
+    const ico: ICO = (await ICO.deploy(
+      [alice.address, bob.address],
+      treasury.address
+    )) as ICO;
     await ico.deployed();
 
     // NOTE: You may need to pass arguments to the `deploy` function, if your
     //       SpaceCoin contract's constructor has input parameters
     const SpaceCoin = await ethers.getContractFactory("SpaceCoin");
-    const spaceCoin: SpaceCoin =
-      (await SpaceCoin.deploy(/* FILL_ME_IN: */)) as SpaceCoin;
+    const spaceCoin: SpaceCoin = (await SpaceCoin.deploy(
+      deployer.address,
+      treasury.address,
+      ico.address
+    )) as SpaceCoin;
     await spaceCoin.deployed();
 
-    return { ico, spaceCoin, deployer, alice, bob };
+    return { ico, spaceCoin, deployer, alice, bob, treasury };
   }
 
   describe("Deployment & Test Setup", () => {
     it("Deploys a contract", async () => {
       // NOTE: We don't need to extract spaceCoin here because we don't use it
       // in this test. However, we'll need to extract it in tests that require it.
-      const { spaceCoin, deployer, alice, bob } = await loadFixture(
-        setupFixture
-      );
+      const { spaceCoin } = await loadFixture(setupFixture);
 
-      expect(spaceCoin.address).to.be.false;
+      expect(spaceCoin.address).to.be.properAddress;
     });
 
-    it("Flags floating promises", async () => {
-      // NOTE: This test is just for demonstrating/confirming that eslint is
-      // set up to warn about floating promises.
-      const { spaceCoin, deployer, alice, bob } = await loadFixture(
-        setupFixture
-      );
+    // it("Flags floating promises", async () => {
+    //   // NOTE: This test is just for demonstrating/confirming that eslint is
+    //   // set up to warn about floating promises.
+    //   const { spaceCoin, deployer, alice, bob } = await loadFixture(
+    //     setupFixture
+    //   );
 
-      const txReceiptUnresolved = await spaceCoin
-        .connect(alice)
-        .hinkleFinkleDo();
-      expect(txReceiptUnresolved.wait()).to.be.reverted;
+    //   const txReceiptUnresolved = await spaceCoin
+    //     .connect(alice)
+    //     .hinkleFinkleDo();
+    //   expect(txReceiptUnresolved.wait()).to.be.reverted;
+    // });
+  });
+
+  describe("Constructor", () => {
+    it("Sets the correct treasury address", async () => {
+      const { spaceCoin, treasury } = await loadFixture(setupFixture);
+      expect(await spaceCoin.TREASURY()).to.equal(treasury.address);
+    });
+
+    it("Should set the owner correctly", async () => {
+      const { spaceCoin, deployer } = await loadFixture(setupFixture);
+
+      expect(await spaceCoin.OWNER()).to.equal(deployer.address);
+    });
+
+    it("mints the correct amount of tokens to treasury", async () => {
+      const { spaceCoin, treasury } = await loadFixture(setupFixture);
+
+      expect(await spaceCoin.balanceOf(treasury.address)).to.equal(
+        ethers.utils.parseEther("350000")
+      );
+    });
+
+    it("Mints the correct amount of tokens to the contract", async () => {
+      const { spaceCoin, ico } = await loadFixture(setupFixture);
+
+      expect(await spaceCoin.balanceOf(ico.address)).to.equal(
+        ethers.utils.parseEther("150000")
+      );
     });
   });
 
-  describe("Okay big shot, you're up!", () => {
-    it("SHOW. ME. WHAT. YOU. GOT.", async () => {
-      const {
-        /* FILL_ME_IN */
-      } = await loadFixture(setupFixture);
-      expect("https://www.youtube.com/watch?v=m1fZ7Ap6ebs").to.be.false;
+  describe("ToggleTax", () => {
+    it("Should revert if not called by owner", async () => {
+      const { spaceCoin, alice } = await loadFixture(setupFixture);
 
-      // TODO: Replace this test with your own!
+      expect(spaceCoin.connect(alice).toggleTax()).to.be.revertedWith(
+        "Only the owner is allowed"
+      );
+    });
+
+    it("Should toggle tax", async () => {
+      const { spaceCoin, deployer } = await loadFixture(setupFixture);
+
+      expect(await spaceCoin.taxEnabled()).to.equal(false);
+      await spaceCoin.connect(deployer).toggleTax();
+      expect(await spaceCoin.taxEnabled()).to.equal(true);
+    });
+  });
+
+  describe("Transfers", () => {
+    it("Should revert if transfer amount exceeds balance", async () => {
+      const { spaceCoin, alice, bob } = await loadFixture(setupFixture);
+      const amount = ethers.utils.parseEther("100");
+      expect(
+        spaceCoin.connect(alice).transfer(bob.address, amount)
+      ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
+    });
+
+    it("Should transfer tokens without tax", async () => {
+      const { spaceCoin, treasury, bob } = await loadFixture(setupFixture);
+      const amount = ethers.utils.parseEther("100");
+      const initialTreasuryBalance = ethers.utils.parseEther("350000");
+      expect(await spaceCoin.taxEnabled()).to.equal(false);
+      expect(await spaceCoin.balanceOf(treasury.address)).to.equal(
+        initialTreasuryBalance
+      );
+      expect(await spaceCoin.balanceOf(bob.address)).to.equal(0);
+      await spaceCoin.connect(treasury).transfer(bob.address, amount);
+      expect(await spaceCoin.balanceOf(treasury.address)).to.equal(
+        initialTreasuryBalance.sub(amount)
+      );
+      expect(await spaceCoin.balanceOf(bob.address)).to.equal(amount);
+    });
+
+    it("Should transferFrom tokens without tax", async () => {
+      const { spaceCoin, treasury, bob, alice } = await loadFixture(
+        setupFixture
+      );
+      const amount = ethers.utils.parseEther("100");
+      const initialTreasuryBalance = ethers.utils.parseEther("350000");
+      expect(await spaceCoin.taxEnabled()).to.equal(false);
+      expect(await spaceCoin.balanceOf(treasury.address)).to.equal(
+        initialTreasuryBalance
+      );
+      await spaceCoin
+        .connect(treasury)
+        .increaseAllowance(alice.address, amount);
+      expect(
+        await spaceCoin.allowance(treasury.address, alice.address)
+      ).to.equal(amount);
+      await spaceCoin.connect(treasury).approve(alice.address, amount);
+      await spaceCoin
+        .connect(alice)
+        .transferFrom(treasury.address, bob.address, amount);
+      expect(await spaceCoin.balanceOf(treasury.address)).to.equal(
+        initialTreasuryBalance.sub(amount)
+      );
+      expect(await spaceCoin.balanceOf(bob.address)).to.equal(amount);
+    });
+
+    it("Should transfer tokens with tax", async () => {
+      const { spaceCoin, deployer, treasury, bob } = await loadFixture(
+        setupFixture
+      );
+      const amount = ethers.utils.parseEther("100");
+      const initialTreasuryBalance = ethers.utils.parseEther("350000");
+      expect(await spaceCoin.balanceOf(treasury.address)).to.equal(
+        initialTreasuryBalance
+      );
+      expect(await spaceCoin.balanceOf(bob.address)).to.equal(0);
+      await spaceCoin.connect(deployer).toggleTax();
+      expect(await spaceCoin.taxEnabled()).to.equal(true);
+      await spaceCoin.connect(treasury).transfer(bob.address, amount);
+      expect(await spaceCoin.balanceOf(treasury.address)).to.equal(
+        initialTreasuryBalance.sub(amount).add(amount.mul(2).div(100))
+      );
+      expect(await spaceCoin.balanceOf(bob.address)).to.equal(
+        amount.sub(amount.mul(2).div(100))
+      );
+    });
+
+    it("should transferFrom tokens with tax", async () => {
+      const { spaceCoin, deployer, treasury, bob, alice } = await loadFixture(
+        setupFixture
+      );
+      const amount = ethers.utils.parseEther("100");
+      const initialTreasuryBalance = ethers.utils.parseEther("350000");
+      expect(await spaceCoin.balanceOf(treasury.address)).to.equal(
+        initialTreasuryBalance
+      );
+      await spaceCoin.connect(deployer).toggleTax();
+      expect(await spaceCoin.taxEnabled()).to.equal(true);
+      await spaceCoin
+        .connect(treasury)
+        .increaseAllowance(alice.address, amount);
+      expect(
+        await spaceCoin.allowance(treasury.address, alice.address)
+      ).to.equal(amount);
+      await spaceCoin.connect(treasury).approve(alice.address, amount);
+      await spaceCoin
+        .connect(alice)
+        .transferFrom(
+          treasury.address,
+          bob.address,
+          ethers.utils.parseEther("100")
+        );
+      expect(await spaceCoin.balanceOf(treasury.address)).to.equal(
+        initialTreasuryBalance.sub(amount).add(amount.mul(2).div(100))
+      );
+      expect(await spaceCoin.balanceOf(bob.address)).to.equal(
+        amount.sub(amount.mul(2).div(100))
+      );
+    });
+
+    it("Should revert if there is insufficient allowance", async () => {
+      const { spaceCoin, alice, bob, treasury } = await loadFixture(
+        setupFixture
+      );
+      const amount = ethers.utils.parseEther("100");
+      expect(
+        spaceCoin
+          .connect(alice)
+          .transferFrom(treasury.address, bob.address, amount)
+      ).to.be.revertedWith("ERC20: insufficient allowance");
+    });
+
+    it("Should revert if there is insufficient allowance", async () => {
+      const { spaceCoin, alice, bob, treasury } = await loadFixture(
+        setupFixture
+      );
+      const amount = ethers.utils.parseEther("100");
+      const insufficientAmount = ethers.utils.parseEther("1");
+      await spaceCoin
+        .connect(treasury)
+        .increaseAllowance(alice.address, insufficientAmount);
+      expect(
+        await spaceCoin.allowance(treasury.address, alice.address)
+      ).to.equal(insufficientAmount);
+      await spaceCoin
+        .connect(treasury)
+        .approve(alice.address, insufficientAmount);
+      expect(
+        spaceCoin
+          .connect(alice)
+          .transferFrom(treasury.address, bob.address, amount)
+      ).to.be.revertedWith("ERC20: insufficient allowance");
     });
   });
 });

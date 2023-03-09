@@ -10,36 +10,35 @@ contract ICO {
         GENERAL,
         OPEN
     }
-    address public owner;
-    SpaceCoin public spacecoin;
-    Phases public phase;
+    address public immutable OWNER;
+    address public immutable SPC_ADDRESS;
+    Phases public currentPhase;
 
-    uint8 public constant TOKEN_REDEEM_RATIO = 5;
-    uint256 public totalContribution;
-    uint256 maxTotalSupply = 500000;
-    uint256 initialSupply = 150000;
+    uint8 public immutable TOKEN_REDEEM_RATIO = 5;
+    uint256 public totalContributions;
 
     bool public isPaused;
 
-    mapping(address => uint256) contributions;
-    mapping(address => bool) seedWhiteList;
+    mapping(address => uint256) public contributions;
+    mapping(address => bool) public seedWhiteList;
 
-    event ICOActiveState(bool);
+    event PauseToggled(bool);
     event ContributionMade(address, uint256);
     event TokenRedeemed(address, uint256);
-    event ICOPhaseChanged(Phases);
+    event PhaseAdvanced(Phases);
 
     constructor(address[] memory _seedWhiteList, address _treasury) {
-        owner = msg.sender;
+        OWNER = msg.sender;
         for (uint256 i = 0; i < _seedWhiteList.length; i++) {
             seedWhiteList[_seedWhiteList[i]] = true;
         }
-        spacecoin = new SpaceCoin(_treasury);
+        SpaceCoin spacecoin = new SpaceCoin(OWNER, _treasury, address(this));
+        SPC_ADDRESS = address(spacecoin);
     }
 
     /// @dev make sure the msg.sender is the owner of the contract
     modifier _onlyOwner() {
-        require(msg.sender == owner, "Only the owner is allowed");
+        require(msg.sender == OWNER, "Caller is not the owner");
         _;
     }
 
@@ -51,53 +50,61 @@ contract ICO {
 
     /// @dev owner of the ICO can move phase forward, but not back
     function advanceICOPhase() external _onlyOwner {
-        require(phase == Phases.OPEN, "Project already in open phase");
-        if (phase == Phases.SEED) phase = Phases.GENERAL;
-        if (phase == Phases.GENERAL) phase = Phases.OPEN;
-        emit ICOPhaseChanged(phase);
+        require(currentPhase != Phases.OPEN, "ICO is already in open phase");
+        if (currentPhase == Phases.GENERAL) currentPhase = Phases.OPEN;
+        if (currentPhase == Phases.SEED) currentPhase = Phases.GENERAL;
+        emit PhaseAdvanced(currentPhase);
     }
 
     /// @dev allows the owner of the contract to pause the ICO
-    function toggleICOActiveState() external _onlyOwner {
+    function togglePauseState() external _onlyOwner {
         isPaused = !isPaused;
-        emit ICOActiveState(isPaused);
+        emit PauseToggled(isPaused);
     }
 
     /// @dev let investor contribute ETH to the ICO based on phase requirements
     function contribute() public payable _onlyNotPaused {
         require(
-            totalContribution + msg.value <= 30000 ether,
+            totalContributions + msg.value <= 30000 ether,
             "Total ICO contribution limit met"
         );
-        if (phase == Phases.SEED) {
-            require(seedWhiteList[msg.sender], "Address not on whitelist");
+        if (currentPhase == Phases.SEED) {
+            require(
+                seedWhiteList[msg.sender],
+                "Contributor is not on the whitelist"
+            );
             require(
                 contributions[msg.sender] + msg.value <= 1500 ether,
                 "Individual contribution limit met"
             );
             require(
-                totalContribution + msg.value <= 15000 ether,
+                totalContributions + msg.value <= 15000 ether,
                 "Seed phase contribution limit met"
             );
-        } else if (phase == Phases.GENERAL) {
+        } else if (currentPhase == Phases.GENERAL) {
             require(
                 contributions[msg.sender] + msg.value <= 1000 ether,
                 "Individual contribution limit met"
             );
         }
         contributions[msg.sender] += msg.value;
-        totalContribution += msg.value;
+        totalContributions += msg.value;
         emit ContributionMade(msg.sender, msg.value);
     }
 
     /// @dev allows contributors to redeem their SPC tokens after the ICO is moved to the OPEN phase
     function redeemSPC() public _onlyNotPaused {
         require(
-            phase == Phases.OPEN,
+            currentPhase == Phases.OPEN,
             "ICO not yet in the open phase, redemption not possible"
         );
+        require(
+            contributions[msg.sender] > 0,
+            "Contributor has no contributions to redeem"
+        );
         uint256 contributionAmount = contributions[msg.sender];
-        contributions[msg.sender] = 0;
+        contributions[msg.sender] -= contributionAmount;
+        SpaceCoin spacecoin = SpaceCoin(SPC_ADDRESS);
         spacecoin.transfer(msg.sender, contributionAmount * TOKEN_REDEEM_RATIO);
         emit TokenRedeemed(msg.sender, contributionAmount * TOKEN_REDEEM_RATIO);
     }
