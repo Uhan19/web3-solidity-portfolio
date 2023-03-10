@@ -5,6 +5,8 @@ node_modules
 typechain
 typechain-types
 frontend/.parcel-cache
+argument-spacecoin.js
+argument.js
 
 #Hardhat files
 artifacts

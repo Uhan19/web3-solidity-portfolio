@@ -6,10 +6,10 @@ import SpaceCoinJSON from "../../artifacts/contracts/SpaceCoin.sol/SpaceCoin.jso
 const provider = new ethers.providers.Web3Provider(window.ethereum);
 const signer = provider.getSigner();
 
-const icoAddr = "0xB9f69c009f1a3ca687B6C2CfF6E52B261dce0d56";
+const icoAddr = "0xdBaf8739133B5c7D429D14C190fDbf15D7be93e4";
 const icoContract = new ethers.Contract(icoAddr, IcoJSON.abi, provider);
 
-const spaceCoinAddr = "0x8e2CF944EC2d304C4cc8B47DB15C5f5325a4c2D5";
+const spaceCoinAddr = "0xCea4CD0ae4D35FA7b759786CC3F008033A3D0553";
 const spaceCoinContract = new ethers.Contract(
   spaceCoinAddr,
   SpaceCoinJSON.abi,
