@@ -2,28 +2,41 @@
 pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "../contracts/INftMarketplace.sol";
+import "./INftMarketPlace.sol";
 
 contract MockNftMarketplace is INftMarketplace, ERC721 {
     constructor() ERC721("Some NFT", "NFT") {
         // TODO: perform any setup of storage variables you want here.
         // You'll likely want to mint some NFTs so you can transfer them
         // when an address calls MockNftMarketplace.buy
+        for (uint256 i = 0; i < 30; i++) {
+            // do I need to call _safeMint here?
+            _mint(address(this), i);
+        }
     }
 
     /// @inheritdoc INftMarketplace
-    function getPrice(
-        address nftContract,
-        uint256 nftId
-    ) public view override returns (uint256 price) {
+    function getPrice(address nftContract, uint256 nftId)
+        public
+        view
+        override
+        returns (uint256 price)
+    {
         // TODO: return some reasonable price value here
+        if (nftContract != address(this))
+            revert IncorrectNftContract(nftContract);
+
+        if (nftId < 10) return 0.5 ether;
+        else return 1000 ether;
     }
 
     /// @inheritdoc INftMarketplace
-    function buy(
-        address nftContract,
-        uint256 nftId
-    ) external payable override returns (bool success) {
+    function buy(address nftContract, uint256 nftId)
+        external
+        payable
+        override
+        returns (bool success)
+    {
         // MockNftMarketplace only has a single NFT for addresses to buy
         // so let's ensure the caller is specifying the only correct NFT
         // contract
