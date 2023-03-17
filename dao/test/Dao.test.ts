@@ -4,7 +4,12 @@ import { BigNumber } from "ethers";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 // import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { parseEther } from "ethers/lib/utils";
-import { Dao, MockNftMarketplace, DaoTest } from "../typechain-types";
+import {
+  Dao,
+  MockNftMarketplace,
+  DaoTest,
+  BasicMath,
+} from "../typechain-types";
 
 const ONE_DAY: number = 60 * 60 * 24;
 // Bump the timestamp by a specific amount of seconds
@@ -16,7 +21,8 @@ const timeTravel = async (seconds: number): Promise<number> => {
 const timeTravelTo = async (seconds: number): Promise<void> => {
   return time.increaseTo(seconds);
 };
-const getCalldata = async (
+
+const getCalldata = (
   nftMarketplace: any,
   nftContract: any,
   nftId: any,
@@ -37,8 +43,21 @@ const getCalldata = async (
 
 describe("Dao", () => {
   const setupFixture = async () => {
-    const [deployer, alice, bob, target1, target2, target3, target4, target5] =
-      await ethers.getSigners();
+    const [
+      deployer,
+      alice,
+      bob,
+      target1,
+      target2,
+      target3,
+      target4,
+      target5,
+      dwight,
+      jim,
+      michael,
+      kevin,
+      pam,
+    ] = await ethers.getSigners();
     const Dao = await ethers.getContractFactory("Dao");
     const dao: Dao = (await Dao.deploy()) as Dao;
     await dao.deployed();
@@ -46,6 +65,10 @@ describe("Dao", () => {
     const DaoTest = await ethers.getContractFactory("DaoTest");
     const daoTest: DaoTest = (await DaoTest.deploy()) as DaoTest;
     await daoTest.deployed();
+
+    const BasicMath = await ethers.getContractFactory("BasicMath");
+    const basicMath: BasicMath = (await BasicMath.deploy()) as BasicMath;
+    await basicMath.deployed();
 
     const MockNftMarketplace = await ethers.getContractFactory(
       "MockNftMarketplace"
@@ -55,6 +78,8 @@ describe("Dao", () => {
     await mockNftMarketplace.deployed();
 
     const chainId = await ethers.provider.getNetwork().then((n) => n.chainId);
+
+    const basicMathData = basicMath.interface.encodeFunctionData("add");
 
     const mockCallData: Array<string> = [
       "0x2e1a7d4d",
@@ -97,7 +122,15 @@ describe("Dao", () => {
       deployer,
       alice,
       bob,
+      dwight,
+      jim,
+      michael,
+      kevin,
+      pam,
       dao,
+      // nftData,
+      basicMath,
+      basicMathData,
       daoTest,
       chainId,
       mockCallData,
@@ -260,7 +293,7 @@ describe("Dao", () => {
           getCalldata(
             mockNftMarketplace.address,
             mockNftMarketplace.address,
-            123,
+            1,
             ethers.utils.parseEther("1")
           ),
         ],
@@ -277,7 +310,7 @@ describe("Dao", () => {
               getCalldata(
                 mockNftMarketplace.address,
                 mockNftMarketplace.address,
-                123,
+                1,
                 ethers.utils.parseEther("1")
               ),
             ]
@@ -592,11 +625,355 @@ describe("Dao", () => {
         .to.emit(dao, "VoteCast")
         .withArgs(alice.address, proposalId, true, 1);
     });
+
+    it("Allows member to vote off-chain using signatures - againstVotes", async () => {
+      const {
+        alice,
+        bob,
+        dao,
+        daoTest,
+        mockCallData,
+        mockTargetAddresses,
+        mockValues,
+        domainType,
+        ballotType,
+      } = await setupFixture();
+      await dao.connect(alice).buyMembership({ value: parseEther("1") });
+      await dao.connect(bob).buyMembership({ value: parseEther("1") });
+      const nounce = (await dao.totalProposals()).add(1);
+      const proposalId = await daoTest.hashProposal(
+        mockTargetAddresses,
+        mockValues,
+        mockCallData,
+        nounce
+      );
+      await expect(
+        dao
+          .connect(alice)
+          .propose(mockTargetAddresses, mockValues, mockCallData)
+      )
+        .to.emit(dao, "ProposalCreated")
+        .withArgs(proposalId, alice.address, 1);
+      expect(await dao.totalProposals()).to.equal(1);
+      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).forVotes).to.equal(0);
+      expect((await dao.membership(alice.address)).isMember).to.equal(true);
+      const votingData = {
+        proposalId,
+        support: false,
+      };
+      const aliceSignature = await alice._signTypedData(
+        domainType,
+        ballotType,
+        votingData
+      );
+      const splitSignature = ethers.utils.splitSignature(aliceSignature);
+      const { v, r, s } = splitSignature;
+      await expect(dao.castVoteBySignature(proposalId, false, v, r, s))
+        .to.emit(dao, "VoteCast")
+        .withArgs(alice.address, proposalId, false, 1);
+    });
+
+    it("Does not allow member to vote off-chain using signatures if not a member", async () => {
+      const {
+        alice,
+        bob,
+        dao,
+        dwight,
+        daoTest,
+        mockCallData,
+        mockTargetAddresses,
+        mockValues,
+        domainType,
+        ballotType,
+      } = await setupFixture();
+      await dao.connect(alice).buyMembership({ value: parseEther("1") });
+      await dao.connect(bob).buyMembership({ value: parseEther("1") });
+      const nounce = (await dao.totalProposals()).add(1);
+      const proposalId = await daoTest.hashProposal(
+        mockTargetAddresses,
+        mockValues,
+        mockCallData,
+        nounce
+      );
+      await expect(
+        dao
+          .connect(alice)
+          .propose(mockTargetAddresses, mockValues, mockCallData)
+      )
+        .to.emit(dao, "ProposalCreated")
+        .withArgs(proposalId, alice.address, 1);
+      expect(await dao.totalProposals()).to.equal(1);
+      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).forVotes).to.equal(0);
+      const votingData = {
+        proposalId,
+        support: true,
+      };
+      const dwightSignature = await dwight._signTypedData(
+        domainType,
+        ballotType,
+        votingData
+      );
+      const splitSignature = ethers.utils.splitSignature(dwightSignature);
+      const { v, r, s } = splitSignature;
+      await expect(
+        dao.castVoteBySignature(proposalId, true, v, r, s)
+      ).to.be.revertedWithCustomError(dao, "NotAMember");
+    });
+
+    it("Allows bulk voting off-chain using signatures", async () => {
+      const {
+        alice,
+        bob,
+        dao,
+        dwight,
+        jim,
+        michael,
+        daoTest,
+        mockCallData,
+        mockTargetAddresses,
+        mockValues,
+        domainType,
+        ballotType,
+      } = await setupFixture();
+      await dao.connect(alice).buyMembership({ value: parseEther("1") });
+      await dao.connect(bob).buyMembership({ value: parseEther("1") });
+      await dao.connect(dwight).buyMembership({ value: parseEther("1") });
+      await dao.connect(michael).buyMembership({ value: parseEther("1") });
+      await dao.connect(jim).buyMembership({ value: parseEther("1") });
+      const nounce = (await dao.totalProposals()).add(1);
+      const proposalId = await daoTest.hashProposal(
+        mockTargetAddresses,
+        mockValues,
+        mockCallData,
+        nounce
+      );
+      await expect(
+        dao
+          .connect(alice)
+          .propose(mockTargetAddresses, mockValues, mockCallData)
+      )
+        .to.emit(dao, "ProposalCreated")
+        .withArgs(proposalId, alice.address, nounce);
+      expect(await dao.totalProposals()).to.equal(1);
+      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).forVotes).to.equal(0);
+      expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
+        5
+      );
+      const aliceVotingData = {
+        proposalId,
+        support: true,
+      };
+      const bobVotingData = {
+        proposalId,
+        support: true,
+      };
+      const dwightVotingData = {
+        proposalId,
+        support: true,
+      };
+      const michaelVotingData = {
+        proposalId,
+        support: true,
+      };
+      const jimVotingData = {
+        proposalId,
+        support: true,
+      };
+      const aliceSignature = await alice._signTypedData(
+        domainType,
+        ballotType,
+        aliceVotingData
+      );
+      const bobSignature = await bob._signTypedData(
+        domainType,
+        ballotType,
+        bobVotingData
+      );
+      const dwightSignature = await dwight._signTypedData(
+        domainType,
+        ballotType,
+        dwightVotingData
+      );
+      const michaelSignature = await michael._signTypedData(
+        domainType,
+        ballotType,
+        michaelVotingData
+      );
+      const jimSignature = await jim._signTypedData(
+        domainType,
+        ballotType,
+        jimVotingData
+      );
+      const aliceSplitSignature = ethers.utils.splitSignature(aliceSignature);
+      const bobSplitSignature = ethers.utils.splitSignature(bobSignature);
+      const dwightSplitSignature = ethers.utils.splitSignature(dwightSignature);
+      const michaelSplitSignature =
+        ethers.utils.splitSignature(michaelSignature);
+      const jimSplitSignature = ethers.utils.splitSignature(jimSignature);
+      const vList = [
+        aliceSplitSignature.v,
+        bobSplitSignature.v,
+        dwightSplitSignature.v,
+        michaelSplitSignature.v,
+        jimSplitSignature.v,
+      ];
+      const rList = [
+        aliceSplitSignature.r,
+        bobSplitSignature.r,
+        dwightSplitSignature.r,
+        michaelSplitSignature.r,
+        jimSplitSignature.r,
+      ];
+      const sList = [
+        aliceSplitSignature.s,
+        bobSplitSignature.s,
+        dwightSplitSignature.s,
+        michaelSplitSignature.s,
+        jimSplitSignature.s,
+      ];
+      const proposalIdList = [
+        proposalId,
+        proposalId,
+        proposalId,
+        proposalId,
+        proposalId,
+      ];
+      const supportList = [true, true, true, true, true];
+      expect(
+        await dao.castBulkVotesBySignature(
+          proposalIdList,
+          supportList,
+          vList,
+          rList,
+          sList
+        )
+      ).to.be.ok;
+    });
+
+    it("Does not allow bulk voting if target length has mismatch", async () => {
+      const {
+        alice,
+        bob,
+        dao,
+        daoTest,
+        mockCallData,
+        mockTargetAddresses,
+        mockValues,
+        domainType,
+        ballotType,
+      } = await setupFixture();
+      await dao.connect(alice).buyMembership({ value: parseEther("1") });
+      await dao.connect(bob).buyMembership({ value: parseEther("1") });
+      const nounce = (await dao.totalProposals()).add(1);
+      const proposalId = await daoTest.hashProposal(
+        mockTargetAddresses,
+        mockValues,
+        mockCallData,
+        nounce
+      );
+      await expect(
+        dao
+          .connect(alice)
+          .propose(mockTargetAddresses, mockValues, mockCallData)
+      )
+        .to.emit(dao, "ProposalCreated")
+        .withArgs(proposalId, alice.address, nounce);
+      expect(await dao.totalProposals()).to.equal(1);
+      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).forVotes).to.equal(0);
+      expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
+        2
+      );
+      const aliceVotingData = {
+        proposalId,
+        support: true,
+      };
+      const bobVotingData = {
+        proposalId,
+        support: true,
+      };
+      const aliceSignature = await alice._signTypedData(
+        domainType,
+        ballotType,
+        aliceVotingData
+      );
+      const bobSignature = await bob._signTypedData(
+        domainType,
+        ballotType,
+        bobVotingData
+      );
+      const aliceSplitSignature = ethers.utils.splitSignature(aliceSignature);
+      const bobSplitSignature = ethers.utils.splitSignature(bobSignature);
+      const vList = [aliceSplitSignature.v, bobSplitSignature.v];
+      const vListMismatch = [aliceSplitSignature.v];
+      const rList = [aliceSplitSignature.r, bobSplitSignature.r];
+      const rListMismatch = [aliceSplitSignature.r];
+      const sList = [aliceSplitSignature.s, bobSplitSignature.s];
+      const sListMismatch = [aliceSplitSignature.s];
+      const proposalIdList = [proposalId, proposalId];
+      const proposalIdListMismatch = [
+        proposalId,
+        proposalId,
+        proposalId,
+        proposalId,
+        proposalId,
+      ];
+      const supportList = [true, true];
+      const supportListMismatch = [true, true, true, true, true];
+      await expect(
+        dao.castBulkVotesBySignature(
+          proposalIdListMismatch,
+          supportList,
+          vList,
+          rList,
+          sList
+        )
+      ).to.be.revertedWithCustomError(dao, "ProposalFuncInformationMisMatch");
+
+      await expect(
+        dao.castBulkVotesBySignature(
+          proposalIdList,
+          supportList,
+          vListMismatch,
+          rList,
+          sList
+        )
+      ).to.be.revertedWithCustomError(dao, "ProposalFuncInformationMisMatch");
+      await expect(
+        dao.castBulkVotesBySignature(
+          proposalIdList,
+          supportList,
+          vList,
+          rListMismatch,
+          sList
+        )
+      ).to.be.revertedWithCustomError(dao, "ProposalFuncInformationMisMatch");
+      await expect(
+        dao.castBulkVotesBySignature(
+          proposalIdList,
+          supportList,
+          vList,
+          rList,
+          sListMismatch
+        )
+      ).to.be.revertedWithCustomError(dao, "ProposalFuncInformationMisMatch");
+      await expect(
+        dao.castBulkVotesBySignature(
+          proposalIdList,
+          supportListMismatch,
+          vList,
+          rList,
+          sList
+        )
+      ).to.be.revertedWithCustomError(dao, "ProposalFuncInformationMisMatch");
+    });
   });
 
   describe("Execute Proposal", () => {
-    // member can execute proposal if quorum is met
-    it("Allows member to execute proposal if quorum is met", async () => {
+    it.only("Allows member to execute proposal if quorum is met", async () => {
       const {
         alice,
         bob,
@@ -653,20 +1030,557 @@ describe("Dao", () => {
         .withArgs(proposalId, alice.address);
     });
 
-    // non-member can execute the proposal if quorum is met
-
-    // proposal can be execute if proposal succeeded, even after voting is over
+    it("Allows non-member to execute proposal if quorum is met", async () => {
+      const {
+        alice,
+        bob,
+        dwight,
+        dao,
+        daoTest,
+        mockCallData,
+        mockTargetAddresses,
+        mockValues,
+      } = await setupFixture();
+      await dao.connect(alice).buyMembership({ value: parseEther("1") });
+      await dao.connect(bob).buyMembership({ value: parseEther("1") });
+      const nounce = (await dao.totalProposals()).add(1);
+      const proposalId = await daoTest.hashProposal(
+        [...mockTargetAddresses],
+        [...mockValues],
+        [...mockCallData],
+        nounce
+      );
+      await expect(
+        dao
+          .connect(alice)
+          .propose([...mockTargetAddresses], [...mockValues], [...mockCallData])
+      )
+        .to.emit(dao, "ProposalCreated")
+        .withArgs(proposalId, alice.address, 1);
+      expect(await dao.totalProposals()).to.equal(1);
+      const timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+      expect((await dao.proposals(proposalId)).startTime).to.equal(timestamp);
+      expect((await dao.proposals(proposalId)).endTime).to.equal(
+        timestamp + ONE_DAY * 7
+      );
+      expect(await dao.connect(alice).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(alice.address, proposalId, true, 1);
+      expect((await dao.proposals(proposalId)).forVotes).to.equal(1);
+      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).totalParticipants).to.equal(1);
+      expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
+        2
+      );
+      timeTravelTo(timestamp + ONE_DAY * 7);
+      expect(
+        await dao
+          .connect(dwight)
+          .execute(
+            proposalId,
+            [...mockTargetAddresses],
+            [...mockValues],
+            [...mockCallData],
+            1
+          )
+      )
+        .to.emit(dao, "ProposalExecuted")
+        .withArgs(proposalId, dwight.address);
+    });
 
     // proposal cannot be exected if quorum is not met
+    it("Cannot execute proposal if quorum is not met", async () => {
+      const {
+        alice,
+        bob,
+        dwight,
+        jim,
+        michael,
+        dao,
+        daoTest,
+        mockCallData,
+        mockTargetAddresses,
+        mockValues,
+      } = await setupFixture();
+      await dao.connect(alice).buyMembership({ value: parseEther("1") });
+      await dao.connect(bob).buyMembership({ value: parseEther("1") });
+      await dao.connect(dwight).buyMembership({ value: parseEther("1") });
+      await dao.connect(jim).buyMembership({ value: parseEther("1") });
+      await dao.connect(michael).buyMembership({ value: parseEther("1") });
+      const nounce = (await dao.totalProposals()).add(1);
+      const proposalId = await daoTest.hashProposal(
+        [...mockTargetAddresses],
+        [...mockValues],
+        [...mockCallData],
+        nounce
+      );
+      await expect(
+        dao
+          .connect(alice)
+          .propose([...mockTargetAddresses], [...mockValues], [...mockCallData])
+      )
+        .to.emit(dao, "ProposalCreated")
+        .withArgs(proposalId, alice.address, 1);
+      expect(await dao.totalProposals()).to.equal(1);
+      const timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+      expect((await dao.proposals(proposalId)).startTime).to.equal(timestamp);
+      expect((await dao.proposals(proposalId)).endTime).to.equal(
+        timestamp + ONE_DAY * 7
+      );
+      expect(await dao.connect(alice).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(alice.address, proposalId, true, 1);
+      expect((await dao.proposals(proposalId)).forVotes).to.equal(1);
+      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).totalParticipants).to.equal(1);
+      expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
+        5
+      );
+      timeTravelTo(timestamp + ONE_DAY * 7);
+      await expect(
+        dao
+          .connect(alice)
+          .execute(
+            proposalId,
+            [...mockTargetAddresses],
+            [...mockValues],
+            [...mockCallData],
+            1
+          )
+      ).to.be.revertedWithCustomError(dao, "ProposalNotSucceeded");
+    });
 
-    // proposal cannot be executed if quorum is met but voting period is over
+    // proposal cannot be executed if quorum is met but voting period is not over
+    it("proposal cannot be executed if quorum is met but voting period is not over", async () => {
+      const {
+        alice,
+        bob,
+        dao,
+        daoTest,
+        mockCallData,
+        mockTargetAddresses,
+        mockValues,
+      } = await setupFixture();
+      await dao.connect(alice).buyMembership({ value: parseEther("1") });
+      await dao.connect(bob).buyMembership({ value: parseEther("1") });
+      const nounce = (await dao.totalProposals()).add(1);
+      const proposalId = await daoTest.hashProposal(
+        [...mockTargetAddresses],
+        [...mockValues],
+        [...mockCallData],
+        nounce
+      );
+      await expect(
+        dao
+          .connect(alice)
+          .propose([...mockTargetAddresses], [...mockValues], [...mockCallData])
+      )
+        .to.emit(dao, "ProposalCreated")
+        .withArgs(proposalId, alice.address, 1);
+      expect(await dao.totalProposals()).to.equal(1);
+      const timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+      expect((await dao.proposals(proposalId)).startTime).to.equal(timestamp);
+      expect((await dao.proposals(proposalId)).endTime).to.equal(
+        timestamp + ONE_DAY * 7
+      );
+      expect(await dao.connect(alice).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(alice.address, proposalId, true, 1);
+      expect((await dao.proposals(proposalId)).forVotes).to.equal(1);
+      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).totalParticipants).to.equal(1);
+      expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
+        2
+      );
+      timeTravel(ONE_DAY);
+      await expect(
+        dao
+          .connect(alice)
+          .execute(
+            proposalId,
+            [...mockTargetAddresses],
+            [...mockValues],
+            [...mockCallData],
+            1
+          )
+      ).to.be.revertedWithCustomError(dao, "ProposalNotSucceeded");
+    });
 
-    // proposal cannot be executed if quorum is met but the proposal is defeated
+    it("proposal cannot be executed if quorum is met but the proposal is defeated", async () => {
+      const {
+        alice,
+        bob,
+        jim,
+        dwight,
+        michael,
+        dao,
+        daoTest,
+        mockCallData,
+        mockTargetAddresses,
+        mockValues,
+      } = await setupFixture();
+      await dao.connect(alice).buyMembership({ value: parseEther("1") });
+      await dao.connect(bob).buyMembership({ value: parseEther("1") });
+      await dao.connect(jim).buyMembership({ value: parseEther("1") });
+      await dao.connect(dwight).buyMembership({ value: parseEther("1") });
+      await dao.connect(michael).buyMembership({ value: parseEther("1") });
+      const nounce = (await dao.totalProposals()).add(1);
+      const proposalId = await daoTest.hashProposal(
+        [...mockTargetAddresses],
+        [...mockValues],
+        [...mockCallData],
+        nounce
+      );
+      await expect(
+        dao
+          .connect(alice)
+          .propose([...mockTargetAddresses], [...mockValues], [...mockCallData])
+      )
+        .to.emit(dao, "ProposalCreated")
+        .withArgs(proposalId, alice.address, 1);
+      expect(await dao.totalProposals()).to.equal(1);
+      const timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+      expect((await dao.proposals(proposalId)).startTime).to.equal(timestamp);
+      expect((await dao.proposals(proposalId)).endTime).to.equal(
+        timestamp + ONE_DAY * 7
+      );
+      expect(await dao.connect(alice).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(alice.address, proposalId, true, 1);
+      expect(await dao.connect(bob).vote(proposalId, false))
+        .to.emit(dao, "VoteCast")
+        .withArgs(bob.address, proposalId, false, 1);
+      expect(await dao.connect(dwight).vote(proposalId, false))
+        .to.emit(dao, "VoteCast")
+        .withArgs(alice.address, proposalId, false, 1);
+      expect(await dao.connect(jim).vote(proposalId, false))
+        .to.emit(dao, "VoteCast")
+        .withArgs(alice.address, proposalId, false, 1);
+      expect(await dao.connect(michael).vote(proposalId, false))
+        .to.emit(dao, "VoteCast")
+        .withArgs(alice.address, proposalId, false, 1);
+      expect((await dao.proposals(proposalId)).forVotes).to.equal(1);
+      expect((await dao.proposals(proposalId)).againstVotes).to.equal(4);
+      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).totalParticipants).to.equal(5);
+      expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
+        5
+      );
+      timeTravelTo(timestamp + ONE_DAY * 7);
+      await expect(
+        dao
+          .connect(alice)
+          .execute(
+            proposalId,
+            [...mockTargetAddresses],
+            [...mockValues],
+            [...mockCallData],
+            1
+          )
+      ).to.be.revertedWithCustomError(dao, "ProposalNotSucceeded");
+    });
 
-    // cannot execute proposal if the proposal is not active
+    it("cannot execute an invalid proposalId", async () => {
+      const {
+        alice,
+        bob,
+        dao,
+        daoTest,
+        mockCallData,
+        mockTargetAddresses,
+        mockValues,
+      } = await setupFixture();
+      await dao.connect(alice).buyMembership({ value: parseEther("1") });
+      await dao.connect(bob).buyMembership({ value: parseEther("1") });
+      const nounce = (await dao.totalProposals()).add(1);
+      const proposalId = await daoTest.hashProposal(
+        [...mockTargetAddresses],
+        [...mockValues],
+        [...mockCallData],
+        nounce
+      );
+      await expect(
+        dao
+          .connect(alice)
+          .propose([...mockTargetAddresses], [...mockValues], [...mockCallData])
+      )
+        .to.emit(dao, "ProposalCreated")
+        .withArgs(proposalId, alice.address, 1);
+      expect(await dao.totalProposals()).to.equal(1);
+      const timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+      expect((await dao.proposals(proposalId)).startTime).to.equal(timestamp);
+      expect((await dao.proposals(proposalId)).endTime).to.equal(
+        timestamp + ONE_DAY * 7
+      );
+      expect(await dao.connect(alice).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(alice.address, proposalId, true, 1);
+      expect((await dao.proposals(proposalId)).forVotes).to.equal(1);
+      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).totalParticipants).to.equal(1);
+      expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
+        2
+      );
+      timeTravelTo(timestamp + ONE_DAY * 7);
+      const fakeProposalId = "1234567";
+      await expect(
+        dao
+          .connect(alice)
+          .execute(
+            fakeProposalId,
+            [...mockTargetAddresses],
+            [...mockValues],
+            [...mockCallData],
+            1
+          )
+      ).to.be.revertedWithCustomError(dao, "InvalidProposalId");
+    });
 
-    // cannot execute an invalid proposalId
+    it("proposal execute will allocate reward for the executor", async () => {
+      const {
+        alice,
+        bob,
+        jim,
+        dwight,
+        michael,
+        pam,
+        dao,
+        daoTest,
+        mockCallData,
+        mockTargetAddresses,
+        mockValues,
+      } = await setupFixture();
+      await dao.connect(alice).buyMembership({ value: parseEther("1") });
+      await dao.connect(bob).buyMembership({ value: parseEther("1") });
+      await dao.connect(jim).buyMembership({ value: parseEther("1") });
+      await dao.connect(dwight).buyMembership({ value: parseEther("1") });
+      await dao.connect(michael).buyMembership({ value: parseEther("1") });
+      await dao.connect(pam).buyMembership({ value: parseEther("1") });
+      const nounce = (await dao.totalProposals()).add(1);
+      const proposalId = await daoTest.hashProposal(
+        [...mockTargetAddresses],
+        [...mockValues],
+        [...mockCallData],
+        nounce
+      );
+      await expect(
+        dao
+          .connect(alice)
+          .propose([...mockTargetAddresses], [...mockValues], [...mockCallData])
+      )
+        .to.emit(dao, "ProposalCreated")
+        .withArgs(proposalId, alice.address, 1);
+      expect(await dao.totalProposals()).to.equal(1);
+      const timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+      expect((await dao.proposals(proposalId)).startTime).to.equal(timestamp);
+      expect((await dao.proposals(proposalId)).endTime).to.equal(
+        timestamp + ONE_DAY * 7
+      );
+      expect(await dao.connect(alice).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(alice.address, proposalId, true, 1);
+      expect(await dao.connect(bob).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(bob.address, proposalId, true, 1);
+      expect(await dao.connect(dwight).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(dwight.address, proposalId, true, 1);
+      expect(await dao.connect(jim).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(jim.address, proposalId, true, 1);
+      expect(await dao.connect(michael).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(michael.address, proposalId, true, 1);
+      expect(await dao.connect(pam).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(pam.address, proposalId, true, 1);
+      expect((await dao.proposals(proposalId)).forVotes).to.equal(6);
+      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).totalParticipants).to.equal(6);
+      expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
+        6
+      );
+      timeTravelTo(timestamp + ONE_DAY * 7);
+      expect(
+        await dao
+          .connect(dwight)
+          .execute(
+            proposalId,
+            [...mockTargetAddresses],
+            [...mockValues],
+            [...mockCallData],
+            1
+          )
+      )
+        .to.emit(dao, "ProposalExecuted")
+        .withArgs(proposalId, dwight.address);
+      expect(await dao.rewards(dwight.address)).to.equal(
+        ethers.utils.parseEther("0.01")
+      );
+      expect(await dao.connect(dwight).redeemReward())
+        .to.emit(dao, "RewardRedeemed")
+        .withArgs(dwight.address, ethers.utils.parseEther("0.01"));
+    });
+  });
 
-    // proposal execute will allocate reward for the executor
+  describe("Buy NFT", () => {
+    it("Allow members to propose a proposal to buy NFT", async () => {
+      const {
+        alice,
+        bob,
+        dao,
+        dwight,
+        michael,
+        jim,
+        pam,
+        daoTest,
+        mockCallData,
+        mockTargetAddresses,
+        mockValues,
+        mockNftMarketplace,
+        // nftData,
+        basicMathData,
+      } = await setupFixture();
+      await dao.connect(alice).buyMembership({ value: parseEther("1") });
+      await dao.connect(bob).buyMembership({ value: parseEther("1") });
+      await dao.connect(dwight).buyMembership({ value: parseEther("1") });
+      await dao.connect(michael).buyMembership({ value: parseEther("1") });
+      await dao.connect(jim).buyMembership({ value: parseEther("1") });
+      await dao.connect(pam).buyMembership({ value: parseEther("1") });
+      const nounce = (await dao.totalProposals()).add(1);
+      const buyNFTCalldata = getCalldata(
+        mockNftMarketplace.address,
+        mockNftMarketplace.address,
+        1,
+        ethers.utils.parseEther("1")
+      );
+
+      const proposalId = await daoTest.hashProposal(
+        [...mockTargetAddresses, mockNftMarketplace.address],
+        [...mockValues, ethers.utils.parseEther("1")],
+        [...mockCallData, buyNFTCalldata],
+        nounce
+      );
+      console.log("proposalId", proposalId);
+      await expect(
+        dao
+          .connect(alice)
+          .propose(
+            [...mockTargetAddresses, mockNftMarketplace.address],
+            [...mockValues, ethers.utils.parseEther("1")],
+            [...mockCallData, buyNFTCalldata]
+          )
+      )
+        .to.emit(dao, "ProposalCreated")
+        .withArgs(proposalId, alice.address, 1);
+      expect(await dao.totalProposals()).to.equal(1);
+      const timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+      expect((await dao.proposals(proposalId)).startTime).to.equal(timestamp);
+      expect((await dao.proposals(proposalId)).endTime).to.equal(
+        timestamp + ONE_DAY * 7
+      );
+      expect(await dao.connect(alice).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(alice.address, proposalId, true, 1);
+      expect(await dao.connect(bob).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(bob.address, proposalId, true, 1);
+      expect(await dao.connect(dwight).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(dwight.address, proposalId, true, 1);
+      expect(await dao.connect(jim).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(jim.address, proposalId, true, 1);
+      expect(await dao.connect(michael).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(michael.address, proposalId, true, 1);
+      expect(await dao.connect(pam).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(pam.address, proposalId, true, 1);
+      expect((await dao.proposals(proposalId)).forVotes).to.equal(6);
+      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).totalParticipants).to.equal(6);
+      expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
+        6
+      );
+      timeTravelTo(timestamp + ONE_DAY * 7);
+      expect(
+        await dao
+          .connect(alice)
+          .execute(
+            proposalId,
+            [...mockTargetAddresses, mockNftMarketplace.address],
+            [...mockValues, ethers.utils.parseEther("1")],
+            [...mockCallData, buyNFTCalldata],
+            1
+          )
+      ).to.emit(dao, "ProposalExecuted");
+    });
+
+    it.only("tests basic math", async () => {
+      const {
+        alice,
+        dao,
+        daoTest,
+        mockCallData,
+        mockTargetAddresses,
+        mockValues,
+        basicMath,
+        basicMathData,
+      } = await setupFixture();
+      await dao.connect(alice).buyMembership({ value: parseEther("1") });
+      const nounce = (await dao.totalProposals()).add(1);
+      const proposalId = await daoTest.hashProposal(
+        [basicMath.address],
+        [ethers.utils.parseEther("1")],
+        [basicMathData],
+        nounce
+      );
+      await expect(
+        dao
+          .connect(alice)
+          .propose(
+            [basicMath.address],
+            [ethers.utils.parseEther("1")],
+            [basicMathData]
+          )
+      )
+        .to.emit(dao, "ProposalCreated")
+        .withArgs(proposalId, alice.address, 1);
+      const timeStamp = (await ethers.provider.getBlock("latest")).timestamp;
+      expect(await dao.totalProposals()).to.equal(1);
+      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).proposer).to.equal(
+        alice.address
+      );
+      expect((await dao.proposals(proposalId)).startTime).to.equal(timeStamp);
+      expect((await dao.proposals(proposalId)).endTime).to.equal(
+        timeStamp + ONE_DAY * 7
+      );
+      expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
+        1
+      );
+      expect((await dao.proposals(proposalId)).forVotes).to.equal(0);
+      expect((await dao.proposals(proposalId)).againstVotes).to.equal(0);
+      expect((await dao.proposals(proposalId)).executed).to.be.false;
+      expect((await dao.proposals(proposalId)).canceled).to.be.false;
+      expect(await dao.connect(alice).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(alice.address, proposalId, true, 1);
+      const timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+      timeTravelTo(timestamp + ONE_DAY * 7);
+      console.log("TARGET from test", basicMath.address);
+      expect(
+        await dao
+          .connect(alice)
+          .execute(
+            proposalId,
+            [basicMath.address],
+            [ethers.utils.parseEther("1")],
+            [basicMathData],
+            1
+          )
+      ).to.emit(dao, "ProposalExecuted");
+    });
   });
 });

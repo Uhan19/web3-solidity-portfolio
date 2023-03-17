@@ -126,8 +126,15 @@ contract Dao {
         bool support,
         uint256 votes
     );
-    // @notice onERC721Received event
-    event Received(address operator, address from, uint256 tokenId, bytes data);
+    /// @notice onERC721Received event
+    event ERC721Received(
+        address operator,
+        address from,
+        uint256 tokenId,
+        bytes data
+    );
+    /// @notice member redeemed execution reward event
+    event RewardRedeemed(address member, uint256 reward);
 
     // constructor(address _nftMarketplace) {
     //     nftMarketplace = _nftMarketplace;
@@ -204,8 +211,8 @@ contract Dao {
         ) {
             return ProposalState.Succeeded;
         } else if (
-            proposal.forVotes < proposal.againstVotes &&
-            !passQuorum(proposalId) &&
+            proposal.forVotes <= proposal.againstVotes &&
+            passQuorum(proposalId) &&
             block.timestamp >= proposal.endTime // look at this
         ) {
             return ProposalState.Defeated;
@@ -264,8 +271,45 @@ contract Dao {
     }
 
     /// @notice Allows bulk voting on proposals by signature;
-    function castBulkVotesBySignature() public {
-        // TODO
+    function castBulkVotesBySignature(
+        uint256[] memory proposalId,
+        bool[] memory forProposal,
+        uint8[] memory v,
+        bytes32[] memory r,
+        bytes32[] memory s
+    ) public {
+        if (proposalId.length == 0) revert NoActionsProvided();
+        if (proposalId.length != forProposal.length)
+            revert ProposalFuncInformationMisMatch();
+        if (proposalId.length != v.length)
+            revert ProposalFuncInformationMisMatch();
+        if (proposalId.length != r.length)
+            revert ProposalFuncInformationMisMatch();
+        if (proposalId.length != s.length)
+            revert ProposalFuncInformationMisMatch();
+
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                DOMAIN_TYPEHASH,
+                keccak256(bytes(name)),
+                block.chainid,
+                address(this)
+            )
+        );
+
+        for (uint256 i = 0; i < proposalId.length; i++) {
+            bytes32 structHash = keccak256(
+                abi.encode(BALLOT_TYPEHASH, proposalId[i], forProposal[i])
+            );
+
+            bytes32 digest = keccak256(
+                abi.encodePacked("\x19\x01", domainSeparator, structHash)
+            );
+
+            address signer = ecrecover(digest, v[i], r[i], s[i]);
+            if (signer == address(0)) revert InvalidSignature();
+            _vote(signer, proposalId[i], forProposal[i]);
+        }
     }
 
     /// @notice Allows a member to cast a vote on a proposal;
@@ -291,7 +335,6 @@ contract Dao {
         ) revert NotAMemberAtTimeOfProposal();
         Proposal storage proposal = proposals[proposalId];
         Receipt storage receipt = proposal.receipts[voter];
-
         if (receipt.hasVoted) revert AlreadyVoted();
         proposal.totalParticipants += 1;
         receipt.hasVoted = true;
@@ -351,18 +394,24 @@ contract Dao {
             revert ProposalNotSucceeded();
         }
         proposal.executed = true;
-        // check if they are a member, since non-members can execute proposals
         membership[msg.sender].votingPower += 1;
         for (uint256 i = 0; i < targets.length; i++) {
             // bytes memory callData = calldatas[i];
-            (bool success, ) = targets[i].call{value: values[i]}(calldatas[i]);
+            uint256 value = values[i];
+            values[i] = 0;
+            balance -= value;
+            console.log("i", i);
+            console.log("targets length", targets.length);
+            console.log("balance", balance);
+            console.log("value", value);
+            (bool success, ) = targets[i].call{value: value}(calldatas[i]);
             if (!success) {
-                revert ProposalExecutionFailed();
+                revert ProposalExecutionFailed(targets[i], value, calldatas[i]);
             }
         }
         if (balance >= 5 ether) {
             balance -= REWARD;
-            rewards[proposal.proposer] = REWARD;
+            rewards[msg.sender] = REWARD;
         }
         emit ProposalExecuted(proposalId, msg.sender);
     }
@@ -373,9 +422,10 @@ contract Dao {
         rewards[msg.sender] = 0;
         (bool success, ) = msg.sender.call{value: reward}("");
         if (!success) revert RewardRedemptionFailed();
+        emit RewardRedeemed(msg.sender, reward);
     }
 
-    /// need a erc721OnRecieve Function
+    /// @notice inaccordance with the ERC721 standard, this function is called when an NFT is transferred to this contract
     function onERC721Received(
         address operator,
         address from,
@@ -383,13 +433,10 @@ contract Dao {
         bytes calldata data
     ) external returns (bytes4) {
         // Emit an event or perform other actions when your contract receives a token
-        emit Received(operator, from, tokenId, data);
+        emit ERC721Received(operator, from, tokenId, data);
 
         // Return the function selector of the onERC721Received function to confirm the receipt
-        return
-            bytes4(
-                keccak256("onERC721Received(address,address,uint256,bytes)")
-            );
+        return this.onERC721Received.selector;
     }
 
     /// @notice Purchases an NFT for the DAO
@@ -397,13 +444,12 @@ contract Dao {
     /// @param nftContract The address of the NFT contract to purchase
     /// @param nftId The token ID on the nftContract to purchase
     /// @param maxPrice The price above which the NFT is deemed too expensive
-    /// and this function call should fail
     function buyNFTFromMarketplace(
         INftMarketplace marketplace,
         address nftContract,
         uint256 nftId,
         uint256 maxPrice
-    ) external payable {
+    ) external {
         if (msg.sender != address(this)) revert InvalidSender();
         uint256 price = marketplace.getPrice(nftContract, nftId);
         if (balance < price) revert InsufficientFunds();
@@ -427,7 +473,7 @@ contract Dao {
     error InvalidSignature();
     error AlreadyVoted();
     error ProposalNotSucceeded();
-    error ProposalExecutionFailed();
+    error ProposalExecutionFailed(address, uint256, bytes);
     error SendRewardFailed();
     error InvalidProposalId();
     error InvalidSender();
