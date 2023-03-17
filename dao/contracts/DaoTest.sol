@@ -1,7 +1,12 @@
 // // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.17;
 
+import "hardhat/console.sol";
+
 contract DaoTest {
+    /// @notice arbitrary total for testing
+    uint256 public total;
+
     /// @notice creates a proposal Id by hashing the encoded parameters
     /// @param targets The address of the contract to call
     /// @param values The amount of ETH to send
@@ -17,5 +22,12 @@ contract DaoTest {
             uint256(
                 keccak256(abi.encode(targets, values, calldatas, proposalCount))
             );
+    }
+
+    /// @notice function to add two intergers and set it to total
+    /// @param a The first integer
+    /// @param b The second integer
+    function add(uint256 a, uint256 b) public {
+        total = a + b;
     }
 }

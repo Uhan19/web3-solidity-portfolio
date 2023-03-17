@@ -14,7 +14,6 @@ contract MockNftMarketplace is INftMarketplace, ERC721 {
             // do I need to call _safeMint here?
             _mint(address(this), i);
         }
-        console.log("mock contract triggered");
     }
 
     /// @inheritdoc INftMarketplace

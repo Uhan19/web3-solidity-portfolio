@@ -7,8 +7,6 @@ import "hardhat/console.sol";
 /// @title DAO contract to allow members to vote on NFTs to buy
 /// @author Yuehan Duan
 contract Dao {
-    address public nftMarketplace;
-
     /// @notice name for the contract
     string public constant name = "Collector Dao";
 
@@ -77,7 +75,7 @@ contract Dao {
         /// @notice bool value to check if proposal has been executed
         bool executed;
         /// @notice mapping to store voter information
-        mapping(address => Receipt) receipts;
+        mapping(address => bool) hasVoted;
     }
 
     /// @notice Struct to store voter information
@@ -334,13 +332,11 @@ contract Dao {
                 proposals[proposalId].totalMembersAtCreation)
         ) revert NotAMemberAtTimeOfProposal();
         Proposal storage proposal = proposals[proposalId];
-        Receipt storage receipt = proposal.receipts[voter];
-        if (receipt.hasVoted) revert AlreadyVoted();
+        if (proposal.hasVoted[voter]) revert AlreadyVoted();
         proposal.totalParticipants += 1;
-        receipt.hasVoted = true;
+        proposal.hasVoted[voter] = true;
         if (forProposal) {
             proposal.forVotes += membership[voter].votingPower;
-            receipt.votes += membership[voter].votingPower;
         } else {
             proposal.againstVotes += membership[voter].votingPower;
         }
@@ -396,14 +392,9 @@ contract Dao {
         proposal.executed = true;
         membership[msg.sender].votingPower += 1;
         for (uint256 i = 0; i < targets.length; i++) {
-            // bytes memory callData = calldatas[i];
             uint256 value = values[i];
             values[i] = 0;
             balance -= value;
-            console.log("i", i);
-            console.log("targets length", targets.length);
-            console.log("balance", balance);
-            console.log("value", value);
             (bool success, ) = targets[i].call{value: value}(calldatas[i]);
             if (!success) {
                 revert ProposalExecutionFailed(targets[i], value, calldatas[i]);
