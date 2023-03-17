@@ -1,10 +1,12 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { BigNumber } from "ethers";
+import { BigNumber, BigNumberish } from "ethers";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 // import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { parseEther } from "ethers/lib/utils";
 import { Dao, MockNftMarketplace, DaoTest } from "../typechain-types";
+
+type PromiseOrValue<T> = Promise<T> | T;
 
 const ONE_DAY: number = 60 * 60 * 24;
 // Bump the timestamp by a specific amount of seconds
@@ -150,7 +152,7 @@ describe("Dao", () => {
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
       const aliceMembership = await dao.membership(alice.address);
       expect(aliceMembership.votingPower).to.equal(1);
-      expect(await aliceMembership.isMember).to.be.true;
+      expect(await aliceMembership.votingPower).to.equal(1);
       expect(await dao.totalMembers()).to.equal(1);
       expect(await dao.provider.getBalance(dao.address)).to.equal(
         parseEther("1")
@@ -686,7 +688,7 @@ describe("Dao", () => {
         ballotType,
       } = await setupFixture();
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
-      expect((await dao.membership(alice.address)).isMember).to.be.true;
+      expect((await dao.membership(alice.address)).votingPower).to.equal(1);
       const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         mockTargetAddresses,
@@ -715,7 +717,7 @@ describe("Dao", () => {
       );
       const splitSignature = ethers.utils.splitSignature(aliceSignature);
       const { v, r, s } = splitSignature;
-      expect((await dao.membership(bob.address)).isMember).to.be.false;
+      expect((await dao.membership(bob.address)).votingPower).to.equal(0);
       await expect(
         dao.connect(bob).castVoteBySignature(proposalId, true, v, r, s)
       )
@@ -754,7 +756,7 @@ describe("Dao", () => {
       expect(await dao.totalProposals()).to.equal(1);
       expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(0);
-      expect((await dao.membership(alice.address)).isMember).to.equal(true);
+      expect((await dao.membership(alice.address)).votingPower).to.equal(1);
       const votingData = {
         proposalId,
         support: false,
@@ -1018,6 +1020,7 @@ describe("Dao", () => {
         proposalId,
         proposalId,
       ];
+      const proposalIdEmpty: PromiseOrValue<BigNumberish>[] = [];
       const supportList = [true, true];
       const supportListMismatch = [true, true, true, true, true];
       await expect(
@@ -1029,6 +1032,16 @@ describe("Dao", () => {
           sList
         )
       ).to.be.revertedWithCustomError(dao, "ProposalFuncInformationMisMatch");
+
+      await expect(
+        dao.castBulkVotesBySignature(
+          proposalIdEmpty,
+          supportList,
+          vList,
+          rList,
+          sList
+        )
+      ).to.be.revertedWithCustomError(dao, "NoActionsProvided");
 
       await expect(
         dao.castBulkVotesBySignature(
@@ -1657,6 +1670,68 @@ describe("Dao", () => {
         dao.connect(dwight).redeemReward()
       ).to.be.revertedWithCustomError(dao, "InsufficientBalance");
     });
+
+    it("Does not allow members with no rewards to redeem rewards", async () => {
+      const {
+        alice,
+        dwight,
+        dao,
+        daoTest,
+        mockCallData,
+        mockTargetAddresses,
+        mockValues,
+      } = await setupFixture();
+      await dao.connect(alice).buyMembership({ value: parseEther("1") });
+      const nonce = (await dao.totalProposals()).add(1);
+      const proposalId = await daoTest.hashProposal(
+        mockTargetAddresses,
+        mockValues,
+        mockCallData,
+        nonce
+      );
+      await expect(
+        dao
+          .connect(alice)
+          .propose(mockTargetAddresses, mockValues, mockCallData)
+      )
+        .to.emit(dao, "ProposalCreated")
+        .withArgs(proposalId, alice.address, 1);
+      expect(await dao.totalProposals()).to.equal(1);
+      const timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+      expect((await dao.proposals(proposalId)).startTime).to.equal(timestamp);
+      expect((await dao.proposals(proposalId)).endTime).to.equal(
+        timestamp + ONE_DAY * 7
+      );
+      expect(await dao.connect(alice).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(alice.address, proposalId, true, 1);
+      expect((await dao.proposals(proposalId)).forVotes).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
+      expect((await dao.proposals(proposalId)).totalParticipants).to.equal(1);
+      expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
+        1
+      );
+      timeTravelTo(timestamp + ONE_DAY * 7);
+      expect(
+        await dao
+          .connect(dwight)
+          .execute(
+            proposalId,
+            [...mockTargetAddresses],
+            [...mockValues],
+            [...mockCallData],
+            1
+          )
+      )
+        .to.emit(dao, "ProposalExecuted")
+        .withArgs(proposalId, dwight.address);
+      expect(await dao.rewards(dwight.address)).to.equal(
+        ethers.utils.parseEther("0.01")
+      );
+      await expect(
+        dao.connect(alice).redeemReward()
+      ).to.be.revertedWithCustomError(dao, "NoReward");
+    });
   });
 
   describe("Buy NFT", () => {
@@ -1960,6 +2035,21 @@ describe("Dao", () => {
             1
           )
       ).to.be.revertedWithCustomError(dao, "ProposalExecutionFailed");
+    });
+
+    it("Revert if the sender is not the dao contract", async () => {
+      const { alice, dao, mockNftMarketplace } = await setupFixture();
+      await dao.connect(alice).buyMembership({ value: parseEther("1") });
+      await expect(
+        dao
+          .connect(alice)
+          .buyNFTFromMarketplace(
+            mockNftMarketplace.address,
+            mockNftMarketplace.address,
+            1,
+            ethers.utils.parseEther("1")
+          )
+      ).to.be.revertedWithCustomError(dao, "InvalidSender");
     });
 
     it("Allow members to propose a proposal to call external contracts", async () => {

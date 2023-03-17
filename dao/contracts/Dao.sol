@@ -84,8 +84,6 @@ contract Dao {
     struct Member {
         /// @notice the member's voting power
         uint256 votingPower;
-        /// @notice bool value to check if member is a member
-        bool isMember;
         /// @notice member position in order of joining
         uint256 positionOrder;
     }
@@ -139,7 +137,7 @@ contract Dao {
             uint256
         )
     {
-        if (!membership[msg.sender].isMember) revert NotAMember();
+        if (membership[msg.sender].votingPower == 0) revert NotAMember();
         if (targets.length != values.length)
             revert ProposalFuncInformationMisMatch();
         if (targets.length != calldatas.length)
@@ -301,8 +299,7 @@ contract Dao {
     ) internal {
         if (state(proposalId) != ProposalState.Active)
             revert ProposalNotActive();
-        if (!membership[voter].isMember) revert NotAMember();
-        if (membership[voter].votingPower == 0) revert NoVotingPower();
+        if (membership[voter].votingPower == 0) revert NotAMember();
         if (
             membership[voter].positionOrder >
             proposals[proposalId].totalMembersAtCreation
@@ -329,15 +326,14 @@ contract Dao {
         if (msg.value != MEMBERSHIP_FEE) {
             revert IncorrectMembershipFee();
         }
-        if (membership[msg.sender].isMember) {
+        if (membership[msg.sender].votingPower > 0) {
             revert AlreadyAMember();
         }
         totalMembers += 1;
         balance += msg.value;
         membership[msg.sender] = Member({
             votingPower: 1,
-            positionOrder: totalMembers,
-            isMember: true
+            positionOrder: totalMembers
         });
     }
 
@@ -440,7 +436,6 @@ contract Dao {
     error ProposalDoesNotExist();
     error IncorrectMembershipFee();
     error AlreadyAMember();
-    error NoVotingPower();
     error ProposalNotActive();
     error NotAMemberAtTimeOfProposal();
     error InvalidSignature();
