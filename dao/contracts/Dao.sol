@@ -333,13 +333,13 @@ contract Dao {
         if (membership[msg.sender].isMember) {
             revert AlreadyAMember();
         }
-        Member memory member;
-        member.votingPower = 1;
         totalMembers += 1;
         balance += msg.value;
-        member.positionOrder = totalMembers;
-        member.isMember = true;
-        membership[msg.sender] = member;
+        membership[msg.sender] = Member({
+            votingPower: 1,
+            positionOrder: totalMembers,
+            isMember: true
+        });
     }
 
     /// @notice function to execute proposals that have succeeded
@@ -384,7 +384,7 @@ contract Dao {
     function redeemReward() external {
         if (rewards[msg.sender] == 0) revert NoReward();
         if (balance <= MIN_THRESHOLD) revert InsufficientBalance();
-        if (balance - rewards[msg.sender] < 0)
+        if (balance < rewards[msg.sender])
             revert InsufficientBalanceAfterRedemption();
         uint256 reward = rewards[msg.sender];
         rewards[msg.sender] = 0;
@@ -423,9 +423,9 @@ contract Dao {
         uint256 price = marketplace.getPrice(nftContract, nftId);
         if (balance < price) revert InsufficientFunds();
         if (price > maxPrice) revert NftTooExpensive(price, maxPrice);
-        emit NftPurchased(price, nftId, nftContract);
         balance -= price;
         marketplace.buy{value: price}(nftContract, nftId);
+        emit NftPurchased(price, nftId, nftContract);
     }
 
     error NftTooExpensive(uint256 price, uint256 maxPrice);
