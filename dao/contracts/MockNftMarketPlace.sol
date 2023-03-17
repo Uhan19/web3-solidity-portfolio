@@ -26,7 +26,7 @@ contract MockNftMarketplace is INftMarketplace, ERC721 {
         if (nftContract != address(this))
             revert IncorrectNftContract(nftContract);
         if (nftId < 10) return 0.01 ether;
-        else return 1 ether;
+        else return 10 ether;
     }
 
     /// @inheritdoc INftMarketplace

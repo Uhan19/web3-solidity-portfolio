@@ -1510,6 +1510,68 @@ describe("Dao", () => {
         .to.emit(dao, "RewardRedeemed")
         .withArgs(dwight.address, ethers.utils.parseEther("0.01"));
     });
+
+    it("Does not allow members to redeem rewards when the contract balance is less than 5 ether", async () => {
+      const {
+        alice,
+        dwight,
+        dao,
+        daoTest,
+        mockCallData,
+        mockTargetAddresses,
+        mockValues,
+      } = await setupFixture();
+      await dao.connect(alice).buyMembership({ value: parseEther("1") });
+      const nonce = (await dao.totalProposals()).add(1);
+      const proposalId = await daoTest.hashProposal(
+        mockTargetAddresses,
+        mockValues,
+        mockCallData,
+        nonce
+      );
+      await expect(
+        dao
+          .connect(alice)
+          .propose(mockTargetAddresses, mockValues, mockCallData)
+      )
+        .to.emit(dao, "ProposalCreated")
+        .withArgs(proposalId, alice.address, 1);
+      expect(await dao.totalProposals()).to.equal(1);
+      const timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+      expect((await dao.proposals(proposalId)).startTime).to.equal(timestamp);
+      expect((await dao.proposals(proposalId)).endTime).to.equal(
+        timestamp + ONE_DAY * 7
+      );
+      expect(await dao.connect(alice).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(alice.address, proposalId, true, 1);
+      expect((await dao.proposals(proposalId)).forVotes).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
+      expect((await dao.proposals(proposalId)).totalParticipants).to.equal(1);
+      expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
+        1
+      );
+      timeTravelTo(timestamp + ONE_DAY * 7);
+      expect(
+        await dao
+          .connect(dwight)
+          .execute(
+            proposalId,
+            [...mockTargetAddresses],
+            [...mockValues],
+            [...mockCallData],
+            1
+          )
+      )
+        .to.emit(dao, "ProposalExecuted")
+        .withArgs(proposalId, dwight.address);
+      expect(await dao.rewards(dwight.address)).to.equal(
+        ethers.utils.parseEther("0.01")
+      );
+      await expect(
+        dao.connect(dwight).redeemReward()
+      ).to.be.revertedWithCustomError(dao, "InsufficientBalance");
+    });
   });
 
   describe("Buy NFT", () => {
@@ -1589,7 +1651,7 @@ describe("Dao", () => {
       expect(await mockNftMarketplace.balanceOf(dao.address)).to.equal(1);
     });
 
-    it("Allow members to propose a proposal to buy NFT that's more expensive", async () => {
+    it("Revert the whole transaction if external calls fail", async () => {
       const {
         alice,
         bob,
@@ -1612,7 +1674,7 @@ describe("Dao", () => {
         mockNftMarketplace.address,
         mockNftMarketplace.address,
         11,
-        ethers.utils.parseEther("1")
+        ethers.utils.parseEther("10")
       );
 
       const proposalId = await daoTest.hashProposal(
@@ -1657,12 +1719,12 @@ describe("Dao", () => {
         6
       );
       timeTravelTo(timestamp + ONE_DAY * 7);
-      expect(
-        await dao
+      await expect(
+        dao
           .connect(bob)
           .execute(proposalId, [dao.address], [0], [buyNFTCalldata], 1)
-      ).to.emit(dao, "ProposalExecuted");
-      expect(await mockNftMarketplace.balanceOf(dao.address)).to.equal(1);
+      ).to.be.revertedWithCustomError(dao, "ProposalExecutionFailed");
+      expect(await mockNftMarketplace.balanceOf(dao.address)).to.equal(0);
     });
 
     it("Revert if the calldata is incorrect", async () => {
@@ -1729,6 +1791,7 @@ describe("Dao", () => {
           .connect(bob)
           .execute(proposalId, [dao.address], [0], [incorrectCalldata], 1)
       ).to.be.revertedWithCustomError(dao, "ProposalExecutionFailed");
+      expect(await dao.rewards(bob.address)).to.equal(0);
     });
 
     it("Revert if the nftContrat address is incorrect", async () => {
@@ -1869,11 +1932,13 @@ describe("Dao", () => {
       );
       timeTravelTo(timestamp + ONE_DAY * 7);
       expect(await daoTest.total()).to.equal(0);
+      expect(await (await dao.membership(bob.address)).votingPower).to.equal(1);
       expect(
         await dao
           .connect(bob)
           .execute(proposalId, [daoTest.address], [0], [daoTestCalldata], 1)
       ).to.emit(dao, "ProposalExecuted");
+      expect(await (await dao.membership(bob.address)).votingPower).to.equal(2);
       expect(await daoTest.total()).to.equal(4);
     });
   });

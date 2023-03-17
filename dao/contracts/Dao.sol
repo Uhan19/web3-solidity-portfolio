@@ -9,15 +9,16 @@ import "hardhat/console.sol";
 contract Dao {
     /// @notice name for the contract
     string public constant name = "Collector Dao";
-
+    /// @notice Quorum is 25%
+    uint8 public constant QUORUM = 25;
     /// @notice Membership fee is 1 ETH
     uint256 public constant MEMBERSHIP_FEE = 1 ether;
     /// @notice Voting period is 7 days
     uint256 public constant VOTING_PERIOD = 7 days;
     /// @notice Reward for executing a proposal is 0.01 ETH
     uint256 public constant REWARD = 0.01 ether;
-    /// @notice Quorum is 25%
-    uint256 public constant QUORUM = 25;
+    /// @notice minimum threshold to send rewards;
+    uint256 public constant MIN_THRESHOLD = 5 ether;
 
     /// @notice domain separator typehash for EIP-712
     bytes32 public constant DOMAIN_TYPEHASH =
@@ -84,8 +85,6 @@ contract Dao {
     struct Member {
         /// @notice the member's voting power
         uint256 votingPower;
-        /// @notice the time of the member's creation
-        uint256 memberSince;
         /// @notice bool value to check if member is a member
         bool isMember;
         /// @notice member position in order of joining
@@ -93,16 +92,24 @@ contract Dao {
     }
 
     /// @notice proposal created event
-    event ProposalCreated(uint256 proposalId, address proposer, uint256 nonce);
+    event ProposalCreated(
+        uint256 indexed proposalId,
+        address proposer,
+        uint256 nonce
+    );
     /// @notice proposal executed event
-    event ProposalExecuted(uint256 proposalId, address sender);
+    event ProposalExecuted(uint256 indexed proposalId, address sender);
     /// @notice nft purchased event
-    event NftPurchased(uint256 price, uint256 nftId, address nftContract);
+    event NftPurchased(
+        uint256 price,
+        uint256 indexed nftId,
+        address nftContract
+    );
     /// @notice member joined event
-    event MemberJoined(address member);
+    event MemberJoined(address indexed member);
     /// @notice vote cast event
     event VoteCast(
-        address voter,
+        address indexed voter,
         uint256 proposalId,
         bool support,
         uint256 votes
@@ -115,9 +122,9 @@ contract Dao {
         bytes data
     );
     /// @notice member redeemed execution reward event
-    event RewardRedeemed(address member, uint256 reward);
+    event RewardRedeemed(address indexed member, uint256 reward);
 
-    /// @notice Allows a member to create a proposal;
+    /// @notice Allows a member to create a proposal
     /// @param targets The address of the contract to call
     /// @param values The amount of ETH to send
     /// @param calldatas The data to pass to the function
@@ -126,7 +133,7 @@ contract Dao {
         uint256[] memory values,
         bytes[] memory calldatas
     )
-        public
+        external
         returns (
             uint256,
             address,
@@ -155,7 +162,7 @@ contract Dao {
         newProposal.totalMembersAtCreation = totalMembers;
 
         emit ProposalCreated(proposalId, msg.sender, newProposal.nonce);
-        return (proposalId, msg.sender, newProposal.nonce); // other contract can have access to this info
+        return (proposalId, msg.sender, newProposal.nonce);
     }
 
     /// @notice creates a proposal Id by hashing the encoded parameters
@@ -176,7 +183,6 @@ contract Dao {
     }
 
     function state(uint256 proposalId) public view returns (ProposalState) {
-        // if (proposalId > totalProposals) revert ProposalDoesNotExist();
         Proposal storage proposal = proposals[proposalId];
         if (proposal.nonce == 0) {
             revert InvalidProposalId();
@@ -184,13 +190,13 @@ contract Dao {
         if (
             proposal.forVotes > proposal.againstVotes &&
             passQuorum(proposalId) &&
-            block.timestamp >= proposal.endTime // look at this
+            block.timestamp >= proposal.endTime
         ) {
             return ProposalState.Succeeded;
         } else if (
             proposal.forVotes <= proposal.againstVotes &&
             passQuorum(proposalId) &&
-            block.timestamp >= proposal.endTime // look at this
+            block.timestamp >= proposal.endTime
         ) {
             return ProposalState.Defeated;
         } else if (block.timestamp <= proposal.endTime) {
@@ -200,11 +206,10 @@ contract Dao {
         }
     }
 
-    /// @notice Calculates the quorum threshold for a proposal
+    /// @notice Calculates whether the quorum has been met
     /// @dev Quorum is calculated using the total number of members at the time of proposal creation
     /// @param proposalId The id of the proposal to calculate quorum for
-    /// need to augment this to deal with floating decimals
-    function passQuorum(uint256 proposalId) public view returns (bool) {
+    function passQuorum(uint256 proposalId) internal view returns (bool) {
         Proposal storage proposal = proposals[proposalId];
         return
             (proposal.totalParticipants * 100) /
@@ -213,7 +218,7 @@ contract Dao {
     }
 
     /// @notice Allows a member to directly vote on a proposal;
-    function vote(uint256 proposalId, bool forProposal) public {
+    function vote(uint256 proposalId, bool forProposal) external {
         return _vote(msg.sender, proposalId, forProposal);
     }
 
@@ -224,7 +229,7 @@ contract Dao {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) public {
+    ) external {
         bytes32 domainSeparator = keccak256(
             abi.encode(
                 DOMAIN_TYPEHASH,
@@ -299,16 +304,9 @@ contract Dao {
             revert ProposalNotActive();
         if (!membership[voter].isMember) revert NotAMember();
         if (membership[voter].votingPower == 0) revert NoVotingPower();
-        /* The if condition below checks 2 scenarios
-          1. If the member joined after the proposal was created
-          2. If the member joined at the same time as the proposal was created (same block), 
-            and the member join transaction was executed after the proposal creation transaction
-        */
         if (
-            membership[voter].memberSince > proposals[proposalId].startTime ||
-            (membership[voter].memberSince == proposals[proposalId].startTime &&
-                membership[voter].positionOrder >
-                proposals[proposalId].totalMembersAtCreation)
+            membership[voter].positionOrder >
+            proposals[proposalId].totalMembersAtCreation
         ) revert NotAMemberAtTimeOfProposal();
         Proposal storage proposal = proposals[proposalId];
         if (proposal.hasVoted[voter]) revert AlreadyVoted();
@@ -339,7 +337,6 @@ contract Dao {
         member.votingPower = 1;
         totalMembers += 1;
         balance += msg.value;
-        member.memberSince = block.timestamp;
         member.positionOrder = totalMembers;
         member.isMember = true;
         membership[msg.sender] = member;
@@ -379,18 +376,19 @@ contract Dao {
                 revert ProposalExecutionFailed(targets[i], value, calldatas[i]);
             }
         }
-        if (balance >= 5 ether) {
-            balance -= REWARD;
-            rewards[msg.sender] = REWARD;
-        }
+        rewards[msg.sender] = REWARD;
         emit ProposalExecuted(proposalId, msg.sender);
     }
 
     /// @notice function to redeem rewards
     function redeemReward() external {
         if (rewards[msg.sender] == 0) revert NoReward();
+        if (balance <= MIN_THRESHOLD) revert InsufficientBalance();
+        if (balance - rewards[msg.sender] < 0)
+            revert InsufficientBalanceAfterRedemption();
         uint256 reward = rewards[msg.sender];
         rewards[msg.sender] = 0;
+        balance -= reward;
         (bool success, ) = msg.sender.call{value: reward}("");
         if (!success) revert RewardRedemptionFailed();
         emit RewardRedeemed(msg.sender, reward);
@@ -451,4 +449,6 @@ contract Dao {
     error InsufficientFunds();
     error NoReward();
     error RewardRedemptionFailed();
+    error InsufficientBalance();
+    error InsufficientBalanceAfterRedemption();
 }
