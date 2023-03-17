@@ -1,5 +1,5 @@
-// // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.17;
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity 0.8.17;
 
 import "./INftMarketPlace.sol";
 import "hardhat/console.sol";
@@ -29,7 +29,7 @@ contract Dao {
     bytes32 public constant BALLOT_TYPEHASH =
         keccak256("Ballot(uint256 proposalId,bool support)");
 
-    /// @notice Total number of members used to calulate quorum
+    /// @notice Total number of members in the Dao
     uint256 public totalMembers;
 
     /// @notice Total number of proposals
@@ -38,7 +38,7 @@ contract Dao {
     /// @notice contract balance
     uint256 public balance;
 
-    /// @notice executor rewards
+    /// @notice Mapping to store executor rewards
     mapping(address => uint256) public rewards;
 
     /// @notice Mapping to store member information
@@ -116,10 +116,6 @@ contract Dao {
     );
     /// @notice member redeemed execution reward event
     event RewardRedeemed(address member, uint256 reward);
-
-    // constructor(address _nftMarketplace) {
-    //     nftMarketplace = _nftMarketplace;
-    // }
 
     /// @notice Allows a member to create a proposal;
     /// @param targets The address of the contract to call
@@ -390,6 +386,7 @@ contract Dao {
         emit ProposalExecuted(proposalId, msg.sender);
     }
 
+    /// @notice function to redeem rewards
     function redeemReward() external {
         if (rewards[msg.sender] == 0) revert NoReward();
         uint256 reward = rewards[msg.sender];

@@ -504,6 +504,59 @@ describe("Dao", () => {
       ).to.be.revertedWithCustomError(dao, "AlreadyVoted");
     });
 
+    it("Does not allow voters to vote twice agnostic of voting methods", async () => {
+      const {
+        alice,
+        bob,
+        dao,
+        daoTest,
+        mockCallData,
+        mockTargetAddresses,
+        mockValues,
+        domainType,
+        ballotType,
+      } = await setupFixture();
+      await dao.connect(alice).buyMembership({ value: parseEther("1") });
+      await dao.connect(bob).buyMembership({ value: parseEther("1") });
+      const nounce = (await dao.totalProposals()).add(1);
+      const proposalId = await daoTest.hashProposal(
+        mockTargetAddresses,
+        mockValues,
+        mockCallData,
+        nounce
+      );
+      await expect(
+        dao
+          .connect(alice)
+          .propose(mockTargetAddresses, mockValues, mockCallData)
+      )
+        .to.emit(dao, "ProposalCreated")
+        .withArgs(proposalId, alice.address, 1);
+      expect(await dao.totalProposals()).to.equal(1);
+      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).forVotes).to.equal(0);
+      const votingData = {
+        proposalId,
+        support: true,
+      };
+      const aliceSignature = await alice._signTypedData(
+        domainType,
+        ballotType,
+        votingData
+      );
+      const splitSignature = ethers.utils.splitSignature(aliceSignature);
+      const { v, r, s } = splitSignature;
+      await expect(dao.castVoteBySignature(proposalId, true, v, r, s))
+        .to.emit(dao, "VoteCast")
+        .withArgs(alice.address, proposalId, true, 1);
+      await expect(
+        dao.castVoteBySignature(proposalId, true, v, r, s)
+      ).to.be.revertedWithCustomError(dao, "AlreadyVoted");
+      await expect(
+        dao.connect(alice).vote(proposalId, true)
+      ).to.be.revertedWithCustomError(dao, "AlreadyVoted");
+    });
+
     it("Does not allow member to vote beyound the voting period", async () => {
       const {
         alice,
@@ -616,6 +669,56 @@ describe("Dao", () => {
       const splitSignature = ethers.utils.splitSignature(aliceSignature);
       const { v, r, s } = splitSignature;
       await expect(dao.castVoteBySignature(proposalId, true, v, r, s))
+        .to.emit(dao, "VoteCast")
+        .withArgs(alice.address, proposalId, true, 1);
+    });
+
+    it("Allows non-members to cast votes for members", async () => {
+      const {
+        alice,
+        bob,
+        dao,
+        daoTest,
+        mockCallData,
+        mockTargetAddresses,
+        mockValues,
+        domainType,
+        ballotType,
+      } = await setupFixture();
+      await dao.connect(alice).buyMembership({ value: parseEther("1") });
+      expect((await dao.membership(alice.address)).isMember).to.be.true;
+      const nounce = (await dao.totalProposals()).add(1);
+      const proposalId = await daoTest.hashProposal(
+        mockTargetAddresses,
+        mockValues,
+        mockCallData,
+        nounce
+      );
+      await expect(
+        dao
+          .connect(alice)
+          .propose(mockTargetAddresses, mockValues, mockCallData)
+      )
+        .to.emit(dao, "ProposalCreated")
+        .withArgs(proposalId, alice.address, 1);
+      expect(await dao.totalProposals()).to.equal(1);
+      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).forVotes).to.equal(0);
+      const votingData = {
+        proposalId,
+        support: true,
+      };
+      const aliceSignature = await alice._signTypedData(
+        domainType,
+        ballotType,
+        votingData
+      );
+      const splitSignature = ethers.utils.splitSignature(aliceSignature);
+      const { v, r, s } = splitSignature;
+      expect((await dao.membership(bob.address)).isMember).to.be.false;
+      await expect(
+        dao.connect(bob).castVoteBySignature(proposalId, true, v, r, s)
+      )
         .to.emit(dao, "VoteCast")
         .withArgs(alice.address, proposalId, true, 1);
     });
