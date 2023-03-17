@@ -265,7 +265,6 @@ describe("Dao", () => {
       expect((await dao.proposals(proposalId)).forVotes).to.equal(0);
       expect((await dao.proposals(proposalId)).againstVotes).to.equal(0);
       expect((await dao.proposals(proposalId)).executed).to.be.false;
-      expect((await dao.proposals(proposalId)).canceled).to.be.false;
     });
 
     it("Allows members to create proposals to buy NFT", async () => {

@@ -41,9 +41,6 @@ contract Dao {
     /// @notice executor rewards
     mapping(address => uint256) public rewards;
 
-    /// @notice Proposal for each proposer
-    mapping(address => uint256) public proposalIds;
-
     /// @notice Mapping to store member information
     mapping(address => Member) public membership;
 
@@ -56,8 +53,6 @@ contract Dao {
         uint256 nounce;
         /// @notice address of the proposer
         address proposer;
-        /// @notice the timestamp that the proposal will be available for execution, set once the vote succeeds
-        // uint256 eta;
         /// @notice the time of the proposal's creation
         uint256 startTime;
         /// @notice the time of the proposal's expiration
@@ -69,23 +64,11 @@ contract Dao {
         /// @notice the total number of members at the time of proposal creation
         uint256 totalMembersAtCreation;
         /// @notice the total number of members who have voted on this proposal
-        uint256 totalParticipants; // do I need this?
-        /// @notice bool value to check if proposal has been canceled
-        bool canceled;
+        uint256 totalParticipants;
         /// @notice bool value to check if proposal has been executed
         bool executed;
         /// @notice mapping to store voter information
         mapping(address => bool) hasVoted;
-    }
-
-    /// @notice Struct to store voter information
-    struct Receipt {
-        /// @notice whether or not a vote has been cast
-        bool hasVoted;
-        /// @notice whether or not the voter supports the proposal
-        bool forProposal;
-        /// @notice the number of votes the voter had, which were cast
-        uint256 votes;
     }
 
     /// @notice Enum to store proposal state

@@ -11,7 +11,6 @@ contract MockNftMarketplace is INftMarketplace, ERC721 {
         // You'll likely want to mint some NFTs so you can transfer them
         // when an address calls MockNftMarketplace.buy
         for (uint256 i = 0; i < 20; i++) {
-            // do I need to call _safeMint here?
             _mint(address(this), i);
         }
     }
