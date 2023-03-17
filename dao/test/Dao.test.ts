@@ -235,12 +235,12 @@ describe("Dao", () => {
         mockValues,
       } = await setupFixture();
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         mockTargetAddresses,
         mockValues,
         mockCallData,
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -251,7 +251,7 @@ describe("Dao", () => {
         .withArgs(proposalId, alice.address, 1);
       const timeStamp = (await ethers.provider.getBlock("latest")).timestamp;
       expect(await dao.totalProposals()).to.equal(1);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).proposer).to.equal(
         alice.address
       );
@@ -278,7 +278,7 @@ describe("Dao", () => {
         mockNftMarketplace,
       } = await setupFixture();
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         [...mockTargetAddresses, dao.address],
         [...mockValues, ethers.utils.parseEther("1")],
@@ -291,7 +291,7 @@ describe("Dao", () => {
             ethers.utils.parseEther("1")
           ),
         ],
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -313,7 +313,7 @@ describe("Dao", () => {
         .to.emit(dao, "ProposalCreated")
         .withArgs(proposalId, alice.address, 1);
       expect(await dao.totalProposals()).to.equal(1);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).proposer).to.equal(
         alice.address
       );
@@ -331,12 +331,12 @@ describe("Dao", () => {
         mockValues,
       } = await setupFixture();
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         mockTargetAddresses,
         mockValues,
         mockCallData,
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -363,12 +363,12 @@ describe("Dao", () => {
       } = await setupFixture();
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
       await dao.connect(bob).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         mockTargetAddresses,
         mockValues,
         mockCallData,
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -378,7 +378,7 @@ describe("Dao", () => {
         .to.emit(dao, "ProposalCreated")
         .withArgs(proposalId, alice.address, 1);
       expect(await dao.totalProposals()).to.equal(1);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(0);
       expect(await dao.connect(alice).vote(proposalId, true))
         .to.emit(dao, "VoteCast")
@@ -402,12 +402,12 @@ describe("Dao", () => {
       } = await setupFixture();
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
       await dao.connect(bob).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         mockTargetAddresses,
         mockValues,
         mockCallData,
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -417,7 +417,7 @@ describe("Dao", () => {
         .to.emit(dao, "ProposalCreated")
         .withArgs(proposalId, alice.address, 1);
       expect(await dao.totalProposals()).to.equal(1);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).againstVotes).to.equal(0);
       expect(await dao.connect(alice).vote(proposalId, false))
         .to.emit(dao, "VoteCast")
@@ -442,12 +442,12 @@ describe("Dao", () => {
       } = await setupFixture();
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
       expect(await dao.totalMembers()).to.equal(1);
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         mockTargetAddresses,
         mockValues,
         mockCallData,
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -480,12 +480,12 @@ describe("Dao", () => {
       } = await setupFixture();
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
       await dao.connect(bob).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         mockTargetAddresses,
         mockValues,
         mockCallData,
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -518,12 +518,12 @@ describe("Dao", () => {
       } = await setupFixture();
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
       await dao.connect(bob).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         mockTargetAddresses,
         mockValues,
         mockCallData,
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -533,7 +533,7 @@ describe("Dao", () => {
         .to.emit(dao, "ProposalCreated")
         .withArgs(proposalId, alice.address, 1);
       expect(await dao.totalProposals()).to.equal(1);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(0);
       const votingData = {
         proposalId,
@@ -569,12 +569,12 @@ describe("Dao", () => {
       } = await setupFixture();
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
       await dao.connect(bob).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         mockTargetAddresses,
         mockValues,
         mockCallData,
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -605,12 +605,12 @@ describe("Dao", () => {
         mockValues,
       } = await setupFixture();
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         mockTargetAddresses,
         mockValues,
         mockCallData,
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -640,12 +640,12 @@ describe("Dao", () => {
       } = await setupFixture();
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
       await dao.connect(bob).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         mockTargetAddresses,
         mockValues,
         mockCallData,
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -655,7 +655,7 @@ describe("Dao", () => {
         .to.emit(dao, "ProposalCreated")
         .withArgs(proposalId, alice.address, 1);
       expect(await dao.totalProposals()).to.equal(1);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(0);
       const votingData = {
         proposalId,
@@ -687,12 +687,12 @@ describe("Dao", () => {
       } = await setupFixture();
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
       expect((await dao.membership(alice.address)).isMember).to.be.true;
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         mockTargetAddresses,
         mockValues,
         mockCallData,
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -702,7 +702,7 @@ describe("Dao", () => {
         .to.emit(dao, "ProposalCreated")
         .withArgs(proposalId, alice.address, 1);
       expect(await dao.totalProposals()).to.equal(1);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(0);
       const votingData = {
         proposalId,
@@ -737,12 +737,12 @@ describe("Dao", () => {
       } = await setupFixture();
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
       await dao.connect(bob).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         mockTargetAddresses,
         mockValues,
         mockCallData,
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -752,7 +752,7 @@ describe("Dao", () => {
         .to.emit(dao, "ProposalCreated")
         .withArgs(proposalId, alice.address, 1);
       expect(await dao.totalProposals()).to.equal(1);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(0);
       expect((await dao.membership(alice.address)).isMember).to.equal(true);
       const votingData = {
@@ -786,12 +786,12 @@ describe("Dao", () => {
       } = await setupFixture();
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
       await dao.connect(bob).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         mockTargetAddresses,
         mockValues,
         mockCallData,
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -801,7 +801,7 @@ describe("Dao", () => {
         .to.emit(dao, "ProposalCreated")
         .withArgs(proposalId, alice.address, 1);
       expect(await dao.totalProposals()).to.equal(1);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(0);
       const votingData = {
         proposalId,
@@ -839,12 +839,12 @@ describe("Dao", () => {
       await dao.connect(dwight).buyMembership({ value: parseEther("1") });
       await dao.connect(michael).buyMembership({ value: parseEther("1") });
       await dao.connect(jim).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         mockTargetAddresses,
         mockValues,
         mockCallData,
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -852,9 +852,9 @@ describe("Dao", () => {
           .propose(mockTargetAddresses, mockValues, mockCallData)
       )
         .to.emit(dao, "ProposalCreated")
-        .withArgs(proposalId, alice.address, nounce);
+        .withArgs(proposalId, alice.address, nonce);
       expect(await dao.totalProposals()).to.equal(1);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(0);
       expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
         5
@@ -964,12 +964,12 @@ describe("Dao", () => {
       } = await setupFixture();
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
       await dao.connect(bob).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         mockTargetAddresses,
         mockValues,
         mockCallData,
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -977,9 +977,9 @@ describe("Dao", () => {
           .propose(mockTargetAddresses, mockValues, mockCallData)
       )
         .to.emit(dao, "ProposalCreated")
-        .withArgs(proposalId, alice.address, nounce);
+        .withArgs(proposalId, alice.address, nonce);
       expect(await dao.totalProposals()).to.equal(1);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(0);
       expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
         2
@@ -1082,12 +1082,12 @@ describe("Dao", () => {
       } = await setupFixture();
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
       await dao.connect(bob).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         [...mockTargetAddresses],
         [...mockValues],
         [...mockCallData],
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -1106,7 +1106,7 @@ describe("Dao", () => {
         .to.emit(dao, "VoteCast")
         .withArgs(alice.address, proposalId, true, 1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(1);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).totalParticipants).to.equal(1);
       expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
         2
@@ -1140,12 +1140,12 @@ describe("Dao", () => {
       } = await setupFixture();
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
       await dao.connect(bob).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         [...mockTargetAddresses],
         [...mockValues],
         [...mockCallData],
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -1164,7 +1164,7 @@ describe("Dao", () => {
         .to.emit(dao, "VoteCast")
         .withArgs(alice.address, proposalId, true, 1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(1);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).totalParticipants).to.equal(1);
       expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
         2
@@ -1203,12 +1203,12 @@ describe("Dao", () => {
       await dao.connect(dwight).buyMembership({ value: parseEther("1") });
       await dao.connect(jim).buyMembership({ value: parseEther("1") });
       await dao.connect(michael).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         [...mockTargetAddresses],
         [...mockValues],
         [...mockCallData],
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -1227,7 +1227,7 @@ describe("Dao", () => {
         .to.emit(dao, "VoteCast")
         .withArgs(alice.address, proposalId, true, 1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(1);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).totalParticipants).to.equal(1);
       expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
         5
@@ -1258,12 +1258,12 @@ describe("Dao", () => {
       } = await setupFixture();
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
       await dao.connect(bob).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         [...mockTargetAddresses],
         [...mockValues],
         [...mockCallData],
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -1282,7 +1282,7 @@ describe("Dao", () => {
         .to.emit(dao, "VoteCast")
         .withArgs(alice.address, proposalId, true, 1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(1);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).totalParticipants).to.equal(1);
       expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
         2
@@ -1319,12 +1319,12 @@ describe("Dao", () => {
       await dao.connect(jim).buyMembership({ value: parseEther("1") });
       await dao.connect(dwight).buyMembership({ value: parseEther("1") });
       await dao.connect(michael).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         mockTargetAddresses,
         mockValues,
         mockCallData,
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -1356,7 +1356,7 @@ describe("Dao", () => {
         .withArgs(michael.address, proposalId, false, 1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(1);
       expect((await dao.proposals(proposalId)).againstVotes).to.equal(4);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).totalParticipants).to.equal(5);
       expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
         5
@@ -1381,12 +1381,12 @@ describe("Dao", () => {
       } = await setupFixture();
       await dao.connect(alice).buyMembership({ value: parseEther("1") });
       await dao.connect(bob).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         [...mockTargetAddresses],
         [...mockValues],
         [...mockCallData],
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -1405,7 +1405,7 @@ describe("Dao", () => {
         .to.emit(dao, "VoteCast")
         .withArgs(alice.address, proposalId, true, 1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(1);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).totalParticipants).to.equal(1);
       expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
         2
@@ -1445,12 +1445,12 @@ describe("Dao", () => {
       await dao.connect(dwight).buyMembership({ value: parseEther("1") });
       await dao.connect(michael).buyMembership({ value: parseEther("1") });
       await dao.connect(pam).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const proposalId = await daoTest.hashProposal(
         [...mockTargetAddresses],
         [...mockValues],
         [...mockCallData],
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -1484,7 +1484,7 @@ describe("Dao", () => {
         .to.emit(dao, "VoteCast")
         .withArgs(pam.address, proposalId, true, 1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(6);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).totalParticipants).to.equal(6);
       expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
         6
@@ -1531,7 +1531,7 @@ describe("Dao", () => {
       await dao.connect(michael).buyMembership({ value: parseEther("1") });
       await dao.connect(jim).buyMembership({ value: parseEther("1") });
       await dao.connect(pam).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const buyNFTCalldata = getCalldata(
         mockNftMarketplace.address,
         mockNftMarketplace.address,
@@ -1543,7 +1543,7 @@ describe("Dao", () => {
         [dao.address],
         [0],
         [buyNFTCalldata],
-        nounce
+        nonce
       );
       await expect(
         dao.connect(alice).propose([dao.address], [0], [buyNFTCalldata])
@@ -1575,7 +1575,7 @@ describe("Dao", () => {
         .to.emit(dao, "VoteCast")
         .withArgs(pam.address, proposalId, true, 1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(6);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).totalParticipants).to.equal(6);
       expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
         6
@@ -1607,7 +1607,7 @@ describe("Dao", () => {
       await dao.connect(michael).buyMembership({ value: parseEther("1") });
       await dao.connect(jim).buyMembership({ value: parseEther("1") });
       await dao.connect(pam).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const buyNFTCalldata = getCalldata(
         mockNftMarketplace.address,
         mockNftMarketplace.address,
@@ -1619,7 +1619,7 @@ describe("Dao", () => {
         [dao.address],
         [0],
         [buyNFTCalldata],
-        nounce
+        nonce
       );
       await expect(
         dao.connect(alice).propose([dao.address], [0], [buyNFTCalldata])
@@ -1651,7 +1651,7 @@ describe("Dao", () => {
         .to.emit(dao, "VoteCast")
         .withArgs(pam.address, proposalId, true, 1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(6);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).totalParticipants).to.equal(6);
       expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
         6
@@ -1674,7 +1674,7 @@ describe("Dao", () => {
       await dao.connect(michael).buyMembership({ value: parseEther("1") });
       await dao.connect(jim).buyMembership({ value: parseEther("1") });
       await dao.connect(pam).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const incorrectCalldata = getCalldata(
         jim.address,
         jim.address,
@@ -1686,7 +1686,7 @@ describe("Dao", () => {
         [dao.address],
         [0],
         [incorrectCalldata],
-        nounce
+        nonce
       );
       await expect(
         dao.connect(alice).propose([dao.address], [0], [incorrectCalldata])
@@ -1718,7 +1718,7 @@ describe("Dao", () => {
         .to.emit(dao, "VoteCast")
         .withArgs(pam.address, proposalId, true, 1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(6);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).totalParticipants).to.equal(6);
       expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
         6
@@ -1749,7 +1749,7 @@ describe("Dao", () => {
       await dao.connect(michael).buyMembership({ value: parseEther("1") });
       await dao.connect(jim).buyMembership({ value: parseEther("1") });
       await dao.connect(pam).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const incorrectNftContractAddr = getCalldata(
         mockNftMarketplace.address,
         jim.address,
@@ -1761,7 +1761,7 @@ describe("Dao", () => {
         [dao.address],
         [0],
         [incorrectNftContractAddr],
-        nounce
+        nonce
       );
       await expect(
         dao
@@ -1795,7 +1795,7 @@ describe("Dao", () => {
         .to.emit(dao, "VoteCast")
         .withArgs(pam.address, proposalId, true, 1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(6);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).totalParticipants).to.equal(6);
       expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
         6
@@ -1823,14 +1823,14 @@ describe("Dao", () => {
       await dao.connect(michael).buyMembership({ value: parseEther("1") });
       await dao.connect(jim).buyMembership({ value: parseEther("1") });
       await dao.connect(pam).buyMembership({ value: parseEther("1") });
-      const nounce = (await dao.totalProposals()).add(1);
+      const nonce = (await dao.totalProposals()).add(1);
       const daoTestCalldata = getDaoTestCalldata(1, 3);
 
       const proposalId = await daoTest.hashProposal(
         [daoTest.address],
         [0],
         [daoTestCalldata],
-        nounce
+        nonce
       );
       await expect(
         dao.connect(alice).propose([daoTest.address], [0], [daoTestCalldata])
@@ -1862,7 +1862,7 @@ describe("Dao", () => {
         .to.emit(dao, "VoteCast")
         .withArgs(pam.address, proposalId, true, 1);
       expect((await dao.proposals(proposalId)).forVotes).to.equal(6);
-      expect((await dao.proposals(proposalId)).nounce).to.equal(1);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
       expect((await dao.proposals(proposalId)).totalParticipants).to.equal(6);
       expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
         6

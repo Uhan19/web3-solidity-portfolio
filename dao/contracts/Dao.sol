@@ -49,8 +49,8 @@ contract Dao {
 
     /// @notice Struct to store proposal information
     struct Proposal {
-        /// @notice nounce for each proposal
-        uint256 nounce;
+        /// @notice nonce for each proposal
+        uint256 nonce;
         /// @notice address of the proposer
         address proposer;
         /// @notice the time of the proposal's creation
@@ -93,7 +93,7 @@ contract Dao {
     }
 
     /// @notice proposal created event
-    event ProposalCreated(uint256 proposalId, address proposer, uint256 nounce);
+    event ProposalCreated(uint256 proposalId, address proposer, uint256 nonce);
     /// @notice proposal executed event
     event ProposalExecuted(uint256 proposalId, address sender);
     /// @notice nft purchased event
@@ -148,14 +148,14 @@ contract Dao {
             totalProposals
         );
         Proposal storage newProposal = proposals[proposalId];
-        newProposal.nounce = totalProposals;
+        newProposal.nonce = totalProposals;
         newProposal.proposer = msg.sender;
         newProposal.startTime = block.timestamp;
         newProposal.endTime = block.timestamp + VOTING_PERIOD;
         newProposal.totalMembersAtCreation = totalMembers;
 
-        emit ProposalCreated(proposalId, msg.sender, newProposal.nounce);
-        return (proposalId, msg.sender, newProposal.nounce); // other contract can have access to this info
+        emit ProposalCreated(proposalId, msg.sender, newProposal.nonce);
+        return (proposalId, msg.sender, newProposal.nonce); // other contract can have access to this info
     }
 
     /// @notice creates a proposal Id by hashing the encoded parameters
@@ -178,7 +178,7 @@ contract Dao {
     function state(uint256 proposalId) public view returns (ProposalState) {
         // if (proposalId > totalProposals) revert ProposalDoesNotExist();
         Proposal storage proposal = proposals[proposalId];
-        if (proposal.nounce == 0) {
+        if (proposal.nonce == 0) {
             revert InvalidProposalId();
         }
         if (
