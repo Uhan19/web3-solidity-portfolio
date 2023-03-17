@@ -67,18 +67,18 @@ See [README-Setup.md](./README-Setup.md)
 <!-- You can see how to generate a coverage report in the "Solidity Code Coverage" section located here: -->
 <!-- https://learn.0xmacro.com/training/project-crowdfund/p/4 -->
 
-39 passing (14s)
+40 passing (14s)
 
 -------------------------|----------|----------|----------|----------|----------------|
 File | % Stmts | % Branch | % Funcs | % Lines |Uncovered Lines |
 -------------------------|----------|----------|----------|----------|----------------|
-contracts/ | 100 | 85.14 | 100 | 97.56 | |
-Dao.sol | 100 | 86.36 | 100 | 99.09 | 380 |
+contracts/ | 100 | 85.53 | 100 | 97.56 | |
+Dao.sol | 100 | 86.76 | 100 | 99.09 | 392 |
 DaoTest.sol | 100 | 100 | 100 | 100 | |
 INftMarketPlace.sol | 100 | 100 | 100 | 100 | |
 MockNftMarketPlace.sol | 100 | 75 | 100 | 81.82 | 43,47 |
 -------------------------|----------|----------|----------|----------|----------------|
-All files | 100 | 85.14 | 100 | 97.56 | |
+All files | 100 | 85.53 | 100 | 97.56 | |
 -------------------------|----------|----------|----------|----------|----------------|
 
 ## Design Exercise Answer
