@@ -1511,6 +1511,91 @@ describe("Dao", () => {
         .withArgs(dwight.address, ethers.utils.parseEther("0.01"));
     });
 
+    it("Does not allow executes when the total values are greater than contract balance", async () => {
+      const {
+        alice,
+        bob,
+        jim,
+        dwight,
+        michael,
+        pam,
+        dao,
+        daoTest,
+        mockCallData,
+        mockTargetAddresses,
+      } = await setupFixture();
+      await dao.connect(alice).buyMembership({ value: parseEther("1") });
+      await dao.connect(bob).buyMembership({ value: parseEther("1") });
+      await dao.connect(jim).buyMembership({ value: parseEther("1") });
+      await dao.connect(dwight).buyMembership({ value: parseEther("1") });
+      await dao.connect(michael).buyMembership({ value: parseEther("1") });
+      await dao.connect(pam).buyMembership({ value: parseEther("1") });
+      const nonce = (await dao.totalProposals()).add(1);
+      const largeValues: Array<BigNumber> = [
+        ethers.utils.parseEther("10"),
+        ethers.utils.parseEther("10"),
+        ethers.utils.parseEther("10"),
+        ethers.utils.parseEther("10"),
+        ethers.utils.parseEther("10"),
+      ];
+      const proposalId = await daoTest.hashProposal(
+        mockTargetAddresses,
+        largeValues,
+        mockCallData,
+        nonce
+      );
+      await expect(
+        dao
+          .connect(alice)
+          .propose(mockTargetAddresses, largeValues, mockCallData)
+      )
+        .to.emit(dao, "ProposalCreated")
+        .withArgs(proposalId, alice.address, 1);
+      expect(await dao.totalProposals()).to.equal(1);
+      const timestamp = (await ethers.provider.getBlock("latest")).timestamp;
+      expect((await dao.proposals(proposalId)).startTime).to.equal(timestamp);
+      expect((await dao.proposals(proposalId)).endTime).to.equal(
+        timestamp + ONE_DAY * 7
+      );
+      expect(await dao.connect(alice).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(alice.address, proposalId, true, 1);
+      expect(await dao.connect(bob).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(bob.address, proposalId, true, 1);
+      expect(await dao.connect(dwight).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(dwight.address, proposalId, true, 1);
+      expect(await dao.connect(jim).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(jim.address, proposalId, true, 1);
+      expect(await dao.connect(michael).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(michael.address, proposalId, true, 1);
+      expect(await dao.connect(pam).vote(proposalId, true))
+        .to.emit(dao, "VoteCast")
+        .withArgs(pam.address, proposalId, true, 1);
+      expect((await dao.proposals(proposalId)).forVotes).to.equal(6);
+      expect((await dao.proposals(proposalId)).nonce).to.equal(1);
+      expect((await dao.proposals(proposalId)).totalParticipants).to.equal(6);
+      expect((await dao.proposals(proposalId)).totalMembersAtCreation).to.equal(
+        6
+      );
+      timeTravelTo(timestamp + ONE_DAY * 7);
+      await expect(
+        dao
+          .connect(dwight)
+          .execute(
+            proposalId,
+            mockTargetAddresses,
+            largeValues,
+            mockCallData,
+            1
+          )
+      ).to.be.revertedWithCustomError(dao, "InsufficientBalance");
+      expect(await dao.rewards(dwight.address)).to.equal(0);
+    });
+
     it("Does not allow members to redeem rewards when the contract balance is less than 5 ether", async () => {
       const {
         alice,

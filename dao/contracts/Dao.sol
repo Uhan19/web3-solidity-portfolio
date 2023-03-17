@@ -2,7 +2,6 @@
 pragma solidity 0.8.17;
 
 import "./INftMarketPlace.sol";
-import "hardhat/console.sol";
 
 /// @title DAO contract to allow members to vote on NFTs to buy
 /// @author Yuehan Duan
@@ -367,10 +366,15 @@ contract Dao {
         }
         proposal.executed = true;
         membership[msg.sender].votingPower += 1;
+        uint256 totalValue;
+        for (uint256 i = 0; i < targets.length; i++) {
+            totalValue += values[i];
+        }
+        if (balance < totalValue) revert InsufficientBalance();
+        balance -= totalValue;
         for (uint256 i = 0; i < targets.length; i++) {
             uint256 value = values[i];
             values[i] = 0;
-            balance -= value;
             (bool success, ) = targets[i].call{value: value}(calldatas[i]);
             if (!success) {
                 revert ProposalExecutionFailed(targets[i], value, calldatas[i]);
