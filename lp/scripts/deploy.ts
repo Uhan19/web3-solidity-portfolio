@@ -14,9 +14,18 @@ async function main() {
     "SpaceCoin",
     await ico.SPC_ADDRESS()
   );
+  const SpaceLP = await ethers.getContractFactory("SpaceLP");
+  const spaceLP = await SpaceLP.deploy(spacecoin.address);
+  const SpaceRouter = await ethers.getContractFactory("SpaceRouter");
+  const spaceRouter = await SpaceRouter.deploy(
+    spaceLP.address,
+    spacecoin.address
+  );
 
   console.log("Ico address:", ico.address);
   console.log("spacecoin address", await spacecoin.address);
+  console.log("spaceLP address", await spaceLP.address);
+  console.log("spaceRouter address", await spaceRouter.address);
 }
 
 main()

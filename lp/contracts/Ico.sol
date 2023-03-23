@@ -103,6 +103,7 @@ contract ICO {
 
     /// @notice Moves invested funds from the ICO contract
     /// to the treasury address
+    /// only treasury can call this function
     function withdraw() public { }
 
 
