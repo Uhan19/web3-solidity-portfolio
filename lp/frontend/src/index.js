@@ -2,22 +2,34 @@ import { BigNumber, ethers } from "ethers";
 import RouterJSON from "../../artifacts/contracts/SpaceRouter.sol/SpaceRouter.json";
 import IcoJSON from "../../artifacts/contracts/Ico.sol/Ico.json";
 import SpaceCoinJSON from "../../artifacts/contracts/SpaceCoin.sol/SpaceCoin.json";
+import SpaceLPJSON from "../../artifacts/contracts/SpaceLP.sol/SpaceLP.json";
 
 const provider = new ethers.providers.Web3Provider(window.ethereum);
 const signer = provider.getSigner();
 
-const icoAddr = "0x0B56B88145007Da30e6b310b9f787E03f31838e5";
+const icoAddr = "0x668e66D6Eee63F4A7eE8E1eaB7d896E50D66A9a5";
 const icoContract = new ethers.Contract(icoAddr, IcoJSON.abi, provider);
 
-const spaceCoinAddr = "0x2933c658780016660E762F78d53572781Bea5b2B";
+const spaceCoinAddr = "0x7a28B76480C42ddb8A39251150d47735EA6D522c";
 const spaceCoinContract = new ethers.Contract(
   spaceCoinAddr,
   SpaceCoinJSON.abi,
   provider
 );
 
-const routerAddr = "0x902249587F941367865155FD1AC6d492fd81665B";
-const contract = new ethers.Contract(routerAddr, RouterJSON.abi, provider);
+const routerAddr = "0x219a6c0E3ED133F15a41Bd3f1ca236bA7f2E347b";
+const spaceRouterContract = new ethers.Contract(
+  routerAddr,
+  RouterJSON.abi,
+  provider
+);
+
+const lpAddress = "0x7f0a51Ab58bDb372Ad62a78016a09C2Da24De56a";
+const spaceLpContract = new ethers.Contract(
+  lpAddress,
+  SpaceLPJSON.abi,
+  provider
+);
 
 async function connectToMetamask() {
   try {
@@ -134,17 +146,35 @@ ico_check_phase.addEventListener("click", async (e) => {
 //
 let currentSpcToEthPrice = 5;
 
-provider.on("block", (n) => {
+provider.on("block", async (n) => {
   console.log("New block", n);
   // TODO: Update currentSpcToEthPrice
+  try {
+    const currentSPCPoolBalance = await spaceLpContract.spcBalance();
+    const currentEthPoolBalance = await spaceLpContract.ethBalance();
+    currentSpcToEthPrice =
+      currentEthPoolBalance > 0
+        ? currentSPCPoolBalance / currentEthPoolBalance
+        : 0;
+  } catch (err) {
+    console.log("ratio calculation error", err);
+  }
 });
 
 lp_deposit.eth.addEventListener("input", (e) => {
-  lp_deposit.spc.value = +e.target.value * currentSpcToEthPrice;
+  if (currentSpcToEthPrice === 0) {
+    return;
+  } else {
+    lp_deposit.spc.value = +e.target.value * currentSpcToEthPrice;
+  }
 });
 
 lp_deposit.spc.addEventListener("input", (e) => {
-  lp_deposit.eth.value = +e.target.value / currentSpcToEthPrice;
+  if (currentSpcToEthPrice === 0) {
+    return;
+  } else {
+    lp_deposit.eth.value = +e.target.value / currentSpcToEthPrice;
+  }
 });
 
 lp_deposit.addEventListener("submit", async (e) => {
@@ -156,6 +186,31 @@ lp_deposit.addEventListener("submit", async (e) => {
 
   await connectToMetamask();
   // TODO: Call router contract deposit function
+  try {
+    const unconfirmedTxApprove = await spaceCoinContract
+      .connect(signer)
+      .approve(routerAddr, spc);
+    await unconfirmedTxApprove.wait();
+    const unconfirmedTx = await spaceRouterContract
+      .connect(signer)
+      .addLiquidity(spc, { value: eth });
+    await unconfirmedTx.wait();
+  } catch (err) {
+    console.log("err", err);
+    lp_deposit_error.innerHTML = err.reason;
+  }
+});
+
+check_pool_balance.addEventListener("click", async (e) => {
+  try {
+    const currentSPCPoolBalance = await spaceLpContract.spcBalance();
+    const currentEthPoolBalance = await spaceLpContract.ethBalance();
+    pool_spc.innerHTML = ethers.utils.formatEther(currentSPCPoolBalance);
+    pool_eth.innerHTML = ethers.utils.formatEther(currentEthPoolBalance);
+  } catch (err) {
+    console.log("err", err);
+    lp_deposit_error.innerHTML = err.reason;
+  }
 });
 
 lp_withdraw.addEventListener("submit", async (e) => {
@@ -163,7 +218,7 @@ lp_withdraw.addEventListener("submit", async (e) => {
   console.log("Withdrawing 100% of LP");
 
   await connectToMetamask();
-  // TODO: Call router contract withdraw function
+  // TODO: Call router contract withdraw function'
 });
 
 //

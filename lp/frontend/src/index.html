@@ -39,12 +39,17 @@
 
 <section>
   <h2>Pool</h2>
+  <div>Current Pool balance</div>
+  <div>ETH: <span id="pool_eth"></span></div>
+  <div>SPC: <span id="pool_spc"></span></div>
+  <button id="check_pool_balance">Check pool balance</button>
 
   <form id="lp_deposit">
     Deposit for LP tokens <br />
     <input name="eth" value="0" autocomplete="off" /> ETH<br />
     <input name="spc" value="0" autocomplete="off" /> SPC<br />
     <button type="submit">Deposit</button>
+    <div>Error: <span id="lp_deposit_error" style="color: red"></span></div>
   </form>
 
   <form id="lp_withdraw">
@@ -65,6 +70,7 @@
     >
     <br />
     <span id="swap_out_label">0 SPC</span><br />
+    <div>Set max slippage %:</div>
     <input name="max_slippage" value="5" autocomplete="off" />
     <span id="max_slippage_label">%</span>
     <br />
