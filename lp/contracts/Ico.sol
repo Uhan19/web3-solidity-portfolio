@@ -33,6 +33,7 @@ contract ICO {
 
     error WithdrawNotAuthorized();
     error WithdrawFailed();
+    error CannotWithdrawBeforeOpenPhase(Phases currentPhase);
 
     /// @param _seedWhiteList list of addresses that are allowed to contribute during the seed phase
     /// @param _treasury address of the treasury contract
@@ -111,7 +112,7 @@ contract ICO {
     /// only treasury can call this function
     function withdraw() public {
         if(msg.sender != TREASURY_ADDRESS) revert WithdrawNotAuthorized();
-        // move address(this).balance to treasury address
+        if(currentPhase != Phases.OPEN) revert CannotWithdrawBeforeOpenPhase(currentPhase);
         (bool success, ) = TREASURY_ADDRESS.call{value: address(this).balance}("");
         if (!success) revert WithdrawFailed();
     }
