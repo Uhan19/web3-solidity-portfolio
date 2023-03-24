@@ -22,8 +22,7 @@ contract SpaceLP is ERC20 {
 
     error NotEnoughFundsProvided();
     error InsufficientLiquidity(uint256 minimumLiquidity);
-    error EthTransferFailed(); 
-    error ConstantProductNotMet(); 
+    error EthTransferFailed();
     error ZeroAmountToWithdraw(uint8 zero); // check uint8 here
     error ZeroTokenBalance(uint8 zero); // check uint8 here
     error ZeroTokenTotalSupply(uint8 zero); // check uint8 here
@@ -53,7 +52,6 @@ contract SpaceLP is ERC20 {
         }
         spcBalance = spaceCoin.balanceOf(address(this));
         ethBalance = address(this).balance;
-        // console.log("spcBalance: %s", spcBalance);
 
         emit LiquidityDeposited(msg.sender, spcDeposited, ethDeposited);
         return liquidity;
@@ -62,6 +60,7 @@ contract SpaceLP is ERC20 {
     /// @notice Returns ETH-SPC liquidity to liquidity provider
     /// @param to The address that will receive the outbound token pair
     function withdraw(address to) public {
+        // if (balanceOf(to) == 0) revert AddressHasNoLpTokens();
         uint256 lpTotalSupply = totalSupply();
         uint256 lpTokenBalance = balanceOf(address(this));
         console.log("lpTotalSupply: %s", lpTotalSupply);
@@ -113,7 +112,7 @@ contract SpaceLP is ERC20 {
             ethBalance = address(this).balance;
         }
         uint256 kAfterSwap = spcBalance * ethBalance;
-        if (kAfterSwap < kBeforeSwap) revert ConstantProductNotMet();
+        assert(kAfterSwap > kBeforeSwap);
     }
 
     /// @notice this function is a recovery method for when the external and internal state of the LP is out of sync

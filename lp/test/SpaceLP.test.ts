@@ -141,6 +141,38 @@ describe("SpaceLP", function () {
       );
       expect(await spacelp.balanceOf(alice.address)).to.equal(lpTokenReceived);
     });
+
+    it("Revert if minimum liquidity is not met", async () => {
+      const { spaceCoin, treasury, alice, spacelp } = await loadFixture(
+        setupFixture
+      );
+      const amount = ethers.utils.parseEther("5");
+      const ONE_HUNDRED_WEI = ethers.utils.parseEther("0.0000000000000001");
+      const initialTreasuryBalance = ethers.utils.parseEther("350000");
+      expect(await spaceCoin.taxEnabled()).to.equal(false);
+      expect(await spaceCoin.balanceOf(treasury.address)).to.equal(
+        initialTreasuryBalance
+      );
+      await spaceCoin
+        .connect(treasury)
+        .increaseAllowance(alice.address, amount);
+      expect(
+        await spaceCoin.allowance(treasury.address, alice.address)
+      ).to.equal(amount);
+      await spaceCoin.connect(treasury).approve(alice.address, amount);
+      await spaceCoin
+        .connect(alice)
+        .transferFrom(treasury.address, spacelp.address, ONE_HUNDRED_WEI);
+      expect(await spaceCoin.balanceOf(treasury.address)).to.equal(
+        initialTreasuryBalance.sub(ONE_HUNDRED_WEI)
+      );
+      expect(await spaceCoin.balanceOf(spacelp.address)).to.equal(
+        ONE_HUNDRED_WEI
+      );
+      await expect(
+        spacelp.deposit(alice.address, { value: ONE_HUNDRED_WEI })
+      ).to.be.revertedWithCustomError(spacelp, "InsufficientLiquidity");
+    });
   });
 
   describe("Withdraw", () => {

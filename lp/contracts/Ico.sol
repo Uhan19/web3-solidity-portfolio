@@ -15,6 +15,7 @@ contract ICO {
     }
     address public immutable OWNER;
     address public immutable SPC_ADDRESS;
+    address public immutable TREASURY_ADDRESS;
     Phases public currentPhase;
 
     uint256 public immutable TOKEN_REDEEM_RATIO = 5;
@@ -30,11 +31,15 @@ contract ICO {
     event TokenRedeemed(address, uint256);
     event PhaseAdvanced(Phases);
 
+    error WithdrawNotAuthorized();
+    error WithdrawFailed();
+
     /// @param _seedWhiteList list of addresses that are allowed to contribute during the seed phase
     /// @param _treasury address of the treasury contract
     /// @dev deploys a new SpaceCoin contract and sets the owner of the ICO to the deployer
     constructor(address[] memory _seedWhiteList, address _treasury) {
         OWNER = msg.sender;
+        TREASURY_ADDRESS = _treasury;
         for (uint256 i = 0; i < _seedWhiteList.length; i++) {
             seedWhiteList[_seedWhiteList[i]] = true;
         }
@@ -104,7 +109,12 @@ contract ICO {
     /// @notice Moves invested funds from the ICO contract
     /// to the treasury address
     /// only treasury can call this function
-    function withdraw() public { }
+    function withdraw() public {
+        if(msg.sender != TREASURY_ADDRESS) revert WithdrawNotAuthorized();
+        // move address(this).balance to treasury address
+        (bool success, ) = TREASURY_ADDRESS.call{value: address(this).balance}("");
+        if (!success) revert WithdrawFailed();
+    }
 
 
     /// @notice allows contributors to redeem their SPC tokens after the ICO is moved to the OPEN phase

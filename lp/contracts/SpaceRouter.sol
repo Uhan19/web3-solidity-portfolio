@@ -29,9 +29,9 @@ contract SpaceRouter {
     function addLiquidity(uint256 spc) public payable returns (uint256 liquidity) {
         // uint256 ethOutOfSync = address(spaceLP).balance - spaceLP.ethBalance() + msg.value;
         // uint256 spcOutOfSync = spaceCoin.balanceOf(address(spaceLP)) - spaceLP.spcBalance() + spc;
-        uint256 spcToBeTransferred = spaceCoin.taxEnabled() ? spc - (spc * spaceCoin.TAX_RATE()) / 100 : spc;
+        uint256 spcAfterTax = spaceCoin.taxEnabled() ? spc - (spc * spaceCoin.TAX_RATE()) / 100 : spc;
         uint256 ethToBeDeposited = spaceLP.ethBalance() == 0 ? msg.value :
-            (spaceLP.ethBalance() * spcToBeTransferred) / spaceLP.spcBalance(); // optimalETH given deposited SPC
+            (spaceLP.ethBalance() * spcAfterTax) / spaceLP.spcBalance(); // optimalETH given deposited SPC
         uint256 spcToBeDeposited = spaceLP.spcBalance() == 0 ? spc :
             (spaceLP.spcBalance() * msg.value) / spaceLP.ethBalance(); // optimalSPC given deposited ETH
         if (msg.value >= ethToBeDeposited) {
@@ -44,8 +44,17 @@ contract SpaceRouter {
             return liquidity;
         } else {
             if (spcToBeDeposited > spc) revert InsufficientSPCDeposit(spcToBeDeposited);
+            uint256 ethDeposit = msg.value;
+            if (spaceCoin.taxEnabled()) {
+                uint256 spcToBeDepositedTaxed = spcToBeDeposited - (spcToBeDeposited * spaceCoin.TAX_RATE()) / 100;
+                ethDeposit = (spaceLP.ethBalance() * spcToBeDepositedTaxed) / spaceLP.spcBalance(); 
+            }
             spaceCoin.transferFrom(msg.sender, address(spaceLP), spcToBeDeposited);
-            liquidity = spaceLP.deposit{value: msg.value}(msg.sender);
+            liquidity = spaceLP.deposit{value: ethDeposit}(msg.sender);
+            if (msg.value > ethDeposit) {
+                (bool success, ) = msg.sender.call{value: msg.value - ethDeposit}("");
+                if (!success) revert ETHRefundFailed();
+            }
             return liquidity;
         }
     }

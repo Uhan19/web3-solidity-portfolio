@@ -460,4 +460,43 @@ describe("ICO", () => {
       );
     });
   });
+
+  describe("Withdraw", () => {
+    it("Should allow treasury to withdraw funds", async () => {
+      const { ico, treasury, alice } = await loadFixture(setupFixture);
+      const amount = ethers.utils.parseEther("10");
+      expect(await ico.currentPhase()).to.equal(0);
+      await ico.connect(alice).contribute({ value: amount });
+      expect(await ico.contributions(alice.address)).to.equal(amount);
+      expect(await ico.totalContributions()).to.equal(amount);
+
+      await ico.advanceICOPhase();
+      await ico.advanceICOPhase();
+      expect(await ico.currentPhase()).to.equal(2);
+
+      expect(await ethers.provider.getBalance(ico.address)).to.equal(amount);
+      expect(await ico.connect(treasury).withdraw()).to.be.ok;
+      expect(await ethers.provider.getBalance(ico.address)).to.equal(0);
+    });
+
+    it("Revert if withdraw is called by non-treasury address", async () => {
+      const { ico, treasury, alice } = await loadFixture(setupFixture);
+      const amount = ethers.utils.parseEther("10");
+      expect(await ico.currentPhase()).to.equal(0);
+      await ico.connect(alice).contribute({ value: amount });
+      expect(await ico.contributions(alice.address)).to.equal(amount);
+      expect(await ico.totalContributions()).to.equal(amount);
+
+      await ico.advanceICOPhase();
+      await ico.advanceICOPhase();
+      expect(await ico.currentPhase()).to.equal(2);
+
+      expect(await ethers.provider.getBalance(ico.address)).to.equal(amount);
+      await expect(ico.connect(alice).withdraw()).to.be.revertedWithCustomError(
+        ico,
+        "WithdrawNotAuthorized"
+      );
+      expect(await ethers.provider.getBalance(ico.address)).to.equal(amount);
+    });
+  });
 });
