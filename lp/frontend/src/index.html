@@ -1,23 +1,39 @@
 <title>Sample Project</title>
-<link rel="stylesheet" type="text/css" href="./index.css">
+<link rel="stylesheet" type="text/css" href="./index.css" />
 
 <h1>Project LP</h1>
 
 <section>
   <h2>ICO</h2>
 
-  <div>
-    SPC left to buy: <span id="ico_spc_left"></span>
-  </div>
+  <div>SPC left to buy: <span id="ico_spc_left"></span></div>
 
   <form id="ico_spc_buy">
     Buy SPC
-    <input name="eth" value="0.1" autocomplete="off">
+    <input name="eth" value="0.1" autocomplete="off" />
     <button type="submit">Buy</button>
   </form>
 
+  <div>Error: <span id="ico_error" style="color: red"></span></div>
+
   <div>
-    Error: <span id="ico_error" style="color: red"></span>
+    Your redeemable (in open phase) SPC: <span id="ico_spc_earned"></span>
+
+    <div id="ico_spc_redeem">
+      <button type="button">Redeem</button>
+    </div>
+    <div>Error: <span id="ico_spc_redeem_error" style="color: red"></span></div>
+  </div>
+
+  <div>
+    ICO Phase: <span id="ico_phase"></span>
+    <div id="ico_advance_phase">
+      <button type="button">Advance Phase</button>
+    </div>
+    <div id="ico_check_phase">
+      <button type="button">Check Phase</button>
+    </div>
+    <div>Error: <span id="ico_phase_error" style="color: red"></span></div>
   </div>
 </section>
 
@@ -25,14 +41,14 @@
   <h2>Pool</h2>
 
   <form id="lp_deposit">
-    Deposit for LP tokens <br>
-    <input name="eth" value="0" autocomplete="off"> ETH<br>
-    <input name="spc" value="0" autocomplete="off"> SPC<br>
+    Deposit for LP tokens <br />
+    <input name="eth" value="0" autocomplete="off" /> ETH<br />
+    <input name="spc" value="0" autocomplete="off" /> SPC<br />
     <button type="submit">Deposit</button>
   </form>
 
   <form id="lp_withdraw">
-    Withdraw from pool <br>
+    Withdraw from pool <br />
     <button type="submit">Withdraw All</button>
   </form>
 </section>
@@ -41,13 +57,17 @@
   <h2>Trade</h2>
 
   <form id="swap">
-    Trade SPC for ETH <br>
-    <input name="amount_in" value="0" autocomplete="off"> <span id="swap_in_label">ETH</span>
-    <small id="switcher" style="text-decoration: underline; cursor: pointer;">swap</small>
-    <br>
-    <span id="swap_out_label">0 SPC</span><br>
-    <input name="max_slippage" value="5" autocomplete="off"> <span id="max_slippage_label">%</span>
-    <br>
+    Trade SPC for ETH <br />
+    <input name="amount_in" value="0" autocomplete="off" />
+    <span id="swap_in_label">ETH</span>
+    <small id="switcher" style="text-decoration: underline; cursor: pointer"
+      >swap</small
+    >
+    <br />
+    <span id="swap_out_label">0 SPC</span><br />
+    <input name="max_slippage" value="5" autocomplete="off" />
+    <span id="max_slippage_label">%</span>
+    <br />
     <button type="submit">Trade</button>
   </form>
 </section>

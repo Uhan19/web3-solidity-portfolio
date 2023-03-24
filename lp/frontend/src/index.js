@@ -1,11 +1,23 @@
-import { ethers } from "ethers";
-// import RouterJSON from '../../artifacts/contracts/Router.sol/Router.json'
+import { BigNumber, ethers } from "ethers";
+import RouterJSON from "../../artifacts/contracts/SpaceRouter.sol/SpaceRouter.json";
+import IcoJSON from "../../artifacts/contracts/Ico.sol/Ico.json";
+import SpaceCoinJSON from "../../artifacts/contracts/SpaceCoin.sol/SpaceCoin.json";
 
 const provider = new ethers.providers.Web3Provider(window.ethereum);
 const signer = provider.getSigner();
 
-// const routerAddr = '0x422Db2b48c44c0A1Bf748f4bf304A8093b8F4eb6'
-// const contract = new ethers.Contract(routerAddr, RouterJSON.abi, provider);
+const icoAddr = "0x0B56B88145007Da30e6b310b9f787E03f31838e5";
+const icoContract = new ethers.Contract(icoAddr, IcoJSON.abi, provider);
+
+const spaceCoinAddr = "0x2933c658780016660E762F78d53572781Bea5b2B";
+const spaceCoinContract = new ethers.Contract(
+  spaceCoinAddr,
+  SpaceCoinJSON.abi,
+  provider
+);
+
+const routerAddr = "0x902249587F941367865155FD1AC6d492fd81665B";
+const contract = new ethers.Contract(routerAddr, RouterJSON.abi, provider);
 
 async function connectToMetamask() {
   try {
@@ -15,6 +27,8 @@ async function connectToMetamask() {
     await provider.send("eth_requestAccounts", []);
   }
 }
+
+const getIcoPhase = (phase) => {};
 
 //
 // ICO
@@ -27,6 +41,92 @@ ico_spc_buy.addEventListener("submit", async (e) => {
 
   await connectToMetamask();
   // TODO: Call ico contract contribute function
+  try {
+    const unconfirmedTx = await icoContract
+      .connect(signer)
+      .contribute({ value: eth });
+    await unconfirmedTx.wait();
+    console.log(
+      "contirbutions",
+      ethers.utils.formatEther(
+        BigNumber.from(
+          await icoContract.contributions(await signer.getAddress())
+        )
+      )
+    );
+    ico_spc_left.innerHTML = ethers.utils.formatEther(
+      ethers.utils
+        .parseEther("150000")
+        .sub(BigNumber.from(await icoContract.totalContributions()).mul(5))
+    );
+    ico_spc_earned.innerHTML = ethers.utils.formatEther(
+      BigNumber.from(
+        await icoContract.contributions(await signer.getAddress())
+      ).mul(5)
+    );
+    ico_error.innerHTML = "";
+  } catch (err) {
+    console.log("err", err);
+    ico_error.innerHTML = err.reason;
+  }
+});
+
+ico_spc_redeem.addEventListener("click", async (e) => {
+  console.log("clicked");
+  await connectToMetamask();
+
+  try {
+    const unconfirmedTx = await icoContract.connect(signer).redeemSPC();
+    await unconfirmedTx.wait();
+    ico_spc_earned.innerHTML = "0";
+    ico_spc_redeem_error.innerHTML = "";
+  } catch (err) {
+    console.log("err", err);
+    ico_spc_redeem_error.innerHTML = err.reason;
+  }
+});
+
+ico_advance_phase.addEventListener("click", async (e) => {
+  await connectToMetamask();
+
+  try {
+    const unconfirmedTx = await icoContract.connect(signer).advanceICOPhase();
+    await unconfirmedTx.wait();
+  } catch (err) {
+    console.log("err", err);
+    ico_phase_error.innerHTML = err.reason;
+  }
+});
+
+ico_check_phase.addEventListener("click", async (e) => {
+  await connectToMetamask();
+
+  try {
+    console.log(
+      "check phase",
+      await icoContract.connect(signer).currentPhase()
+    );
+    let phase;
+    const numericPhase = await icoContract.connect(signer).currentPhase();
+    switch (numericPhase) {
+      case 0: {
+        phase = "Seed phase";
+        break;
+      }
+      case 1: {
+        phase = "General phase";
+        break;
+      }
+      case 2: {
+        phase = "Open phase";
+        break;
+      }
+    }
+    ico_phase.innerHTML = phase;
+  } catch (err) {
+    console.log("err", err);
+    ico_phase_error.innerHTML = err.reason;
+  }
 });
 
 //
