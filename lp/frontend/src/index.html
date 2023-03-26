@@ -42,7 +42,8 @@
   <div>Current Pool balance</div>
   <div>ETH: <span id="pool_eth"></span></div>
   <div>SPC: <span id="pool_spc"></span></div>
-  <button id="check_pool_balance">Check pool balance</button>
+  <div>Signer SPC balance: <span id="signer_spc_balance"></span></div>
+  <button id="check_pool_balance">Check balance</button>
 
   <form id="lp_deposit">
     Deposit for LP tokens <br />
@@ -76,6 +77,7 @@
     <br />
     <button type="submit">Trade</button>
   </form>
+  <div>Error: <span id="swap_error" style="color: red"></span></div>
 </section>
 
 <script type="module" src="./index.js"></script>

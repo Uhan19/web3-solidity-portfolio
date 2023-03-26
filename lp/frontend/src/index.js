@@ -7,24 +7,25 @@ import SpaceLPJSON from "../../artifacts/contracts/SpaceLP.sol/SpaceLP.json";
 const provider = new ethers.providers.Web3Provider(window.ethereum);
 const signer = provider.getSigner();
 
-const icoAddr = "0x668e66D6Eee63F4A7eE8E1eaB7d896E50D66A9a5";
+const icoAddr = "0x3474787599bACDB5cD192087a18A1f0549F9BbAE";
+const spaceCoinAddr = "0x36a76A3db7Ba5bF117F04fa8b4c692378dcBD475";
+const routerAddr = "0xF3CA8aE2F2282Ab42Ac9202A8a873B23B89800A6";
+const lpAddress = "0x7056a23Aa086fd4dBf4B7d5bB95fc2B4600bCe6A";
+
 const icoContract = new ethers.Contract(icoAddr, IcoJSON.abi, provider);
 
-const spaceCoinAddr = "0x7a28B76480C42ddb8A39251150d47735EA6D522c";
 const spaceCoinContract = new ethers.Contract(
   spaceCoinAddr,
   SpaceCoinJSON.abi,
   provider
 );
 
-const routerAddr = "0x219a6c0E3ED133F15a41Bd3f1ca236bA7f2E347b";
 const spaceRouterContract = new ethers.Contract(
   routerAddr,
   RouterJSON.abi,
   provider
 );
 
-const lpAddress = "0x7f0a51Ab58bDb372Ad62a78016a09C2Da24De56a";
 const spaceLpContract = new ethers.Contract(
   lpAddress,
   SpaceLPJSON.abi,
@@ -205,6 +206,10 @@ check_pool_balance.addEventListener("click", async (e) => {
   try {
     const currentSPCPoolBalance = await spaceLpContract.spcBalance();
     const currentEthPoolBalance = await spaceLpContract.ethBalance();
+    const userSPCBalance = await spaceCoinContract
+      .connect(signer)
+      .balanceOf(signer.getAddress());
+    signer_spc_balance.innerHTML = ethers.utils.formatEther(userSPCBalance);
     pool_spc.innerHTML = ethers.utils.formatEther(currentSPCPoolBalance);
     pool_eth.innerHTML = ethers.utils.formatEther(currentEthPoolBalance);
   } catch (err) {
@@ -262,4 +267,34 @@ swap.addEventListener("submit", async (e) => {
 
   await connectToMetamask();
   // TODO: Call router contract swap function
+  try {
+    if (swapIn.type === "eth") {
+      const price = await spaceLpContract.quoteSwapPrice(amountIn, 0);
+      const spcOutMin = price.sub(price.mul(maxSlippage).div(100));
+      console.log(
+        "form.amount_in.value",
+        ethers.utils.parseEther(form.amount_in.value)
+      );
+      const swapTx = await spaceRouterContract
+        .connect(signer)
+        .swapETHForSPC(spcOutMin, {
+          value: amountIn,
+        });
+      await swapTx.wait();
+    } else if (swapIn.type === "spc") {
+      const price = await spaceLpContract.quoteSwapPrice(0, amountIn);
+      const ethOutMin = price.sub(price.mul(maxSlippage).div(100));
+      const approveTx = await spaceCoinContract
+        .connect(signer)
+        .approve(routerAddr, amountIn);
+      await approveTx.wait();
+      const swapTx = await spaceRouterContract
+        .connect(signer)
+        .swapSPCForETH(amountIn, ethOutMin);
+      await swapTx.wait();
+    }
+  } catch (err) {
+    console.log("err", err);
+    swap_error.innerHTML = err.reason;
+  }
 });
