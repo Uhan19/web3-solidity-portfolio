@@ -55,7 +55,9 @@
 
   <form id="lp_withdraw">
     Withdraw from pool <br />
-    <button type="submit">Withdraw All</button>
+    <input name="lp" value="0" autocomplete="off" />% LP tokens<br />
+    <button type="submit">Withdraw</button>
+    <div>Error: <span id="lp_withdraw_error" style="color: red"></span></div>
   </form>
 </section>
 

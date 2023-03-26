@@ -7,10 +7,10 @@ import SpaceLPJSON from "../../artifacts/contracts/SpaceLP.sol/SpaceLP.json";
 const provider = new ethers.providers.Web3Provider(window.ethereum);
 const signer = provider.getSigner();
 
-const icoAddr = "0x3474787599bACDB5cD192087a18A1f0549F9BbAE";
-const spaceCoinAddr = "0x36a76A3db7Ba5bF117F04fa8b4c692378dcBD475";
-const routerAddr = "0xF3CA8aE2F2282Ab42Ac9202A8a873B23B89800A6";
-const lpAddress = "0x7056a23Aa086fd4dBf4B7d5bB95fc2B4600bCe6A";
+const icoAddr = "0xa159A0cf7B1f3230036944113929Fde95Cf9Bf1c";
+const spaceCoinAddr = "0x835A6800A542CA83e12Ec02f343b463d0d2D1E8b";
+const routerAddr = "0x0131295D6c6a1E552D33076D94E381F78eff31c3";
+const lpAddress = "0x590B001fc3f63E4e9cF262daf768FB202359422b";
 
 const icoContract = new ethers.Contract(icoAddr, IcoJSON.abi, provider);
 
@@ -41,7 +41,7 @@ async function connectToMetamask() {
   }
 }
 
-const getIcoPhase = (phase) => {};
+// const getIcoPhase = (phase) => {};
 
 //
 // ICO
@@ -221,9 +221,30 @@ check_pool_balance.addEventListener("click", async (e) => {
 lp_withdraw.addEventListener("submit", async (e) => {
   e.preventDefault();
   console.log("Withdrawing 100% of LP");
-
+  const form = e.target;
+  const lpWithdrawPercent = form.lp.value;
   await connectToMetamask();
-  // TODO: Call router contract withdraw function'
+  // TODO: Call router contract withdraw function
+  try {
+    const lpBalance = await spaceLpContract
+      .connect(signer)
+      .balanceOf(signer.getAddress());
+    console.log("lp", lpWithdrawPercent);
+    lpToWithdraw = lpBalance.mul(lpWithdrawPercent).div(100);
+    console.log("lpToWithdraw", ethers.utils.formatEther(lpToWithdraw));
+    console.log("lpBalanceTx", ethers.utils.formatEther(lpBalance));
+    const approveTx = await spaceLpContract
+      .connect(signer)
+      .approve(routerAddr, lpToWithdraw);
+    await approveTx.wait();
+    const unconfirmedTx = await spaceRouterContract
+      .connect(signer)
+      .removeLiquidity(lpToWithdraw);
+    await unconfirmedTx.wait();
+  } catch (err) {
+    console.log("err", err);
+    lp_withdraw_error.innerHTML = err.reason;
+  }
 });
 
 //
