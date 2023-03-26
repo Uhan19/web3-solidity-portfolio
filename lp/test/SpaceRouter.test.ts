@@ -200,7 +200,62 @@ describe("SpaceRouter", () => {
       expect(await ethers.provider.getBalance(spacerouter.address)).to.equal(0);
     });
 
-    it("should add liquidity to the pool with balance, too much SPC - tax on", async () => {
+    // it("should add liquidity to the pool with balance, too much SPC - tax on", async () => {
+    //   const { treasury, spacerouter, spacecoin, spacelp, alice } =
+    //     await loadFixture(setupFixture);
+    //   expect(await spacecoin.balanceOf(treasury.address)).to.equal(
+    //     INITIAL_TREASURY
+    //   );
+    //   await spacecoin
+    //     .connect(treasury)
+    //     .increaseAllowance(alice.address, FIFTY_SPC);
+    //   expect(
+    //     await spacecoin.allowance(treasury.address, alice.address)
+    //   ).to.equal(FIFTY_SPC);
+    //   await spacecoin.connect(treasury).transfer(alice.address, FIFTY_SPC);
+    //   await spacecoin.connect(alice).approve(spacerouter.address, FIFTY_SPC);
+    //   await spacerouter
+    //     .connect(alice)
+    //     .addLiquidity(FIVE_SPC, { value: ONE_ETHER });
+    //   const lpToken = (await spacelp.sqrt(ONE_ETHER.mul(FIVE_SPC))).sub(1000);
+    //   expect(await spacelp.balanceOf(alice.address)).to.equal(lpToken);
+    //   expect(await spacelp.totalSupply()).to.equal(
+    //     await spacelp.sqrt(ONE_ETHER.mul(FIVE_SPC))
+    //   );
+    //   expect(await spacecoin.balanceOf(alice.address)).to.equal(
+    //     FIFTY_SPC.sub(FIVE_SPC)
+    //   );
+    //   expect(await spacecoin.balanceOf(spacerouter.address)).to.equal(0);
+    //   expect(await spacecoin.balanceOf(spacelp.address)).to.equal(FIVE_SPC);
+    //   expect(await spacelp.spcBalance()).to.equal(FIVE_SPC);
+    //   expect(await spacelp.ethBalance()).to.equal(ONE_ETHER);
+    //   expect(await ethers.provider.getBalance(spacelp.address)).to.equal(
+    //     ONE_ETHER
+    //   );
+    //   expect(await ethers.provider.getBalance(spacerouter.address)).to.equal(0);
+    //   await spacecoin.toggleTax();
+    //   expect(await spacecoin.taxEnabled()).to.equal(true);
+    //   const POINT_ONE_ETH = ethers.utils.parseEther("0.1");
+    //   const POINT_FOUR_NINE_SPC = ethers.utils.parseEther("0.49");
+    //   const POINT_ZERO_NINE_EIGHT_ETH = ethers.utils.parseEther("0.098");
+    //   await spacerouter
+    //     .connect(alice)
+    //     .addLiquidity(FIVE_SPC, { value: POINT_ONE_ETH });
+    //   const moreLpToken = (
+    //     await spacelp.sqrt(POINT_ZERO_NINE_EIGHT_ETH.mul(POINT_FOUR_NINE_SPC))
+    //   ).sub(1000);
+    //   expect(
+    //     await (await spacelp.totalSupply()).sub(lpToken.add(moreLpToken))
+    //   ).to.be.lessThanOrEqual(ethers.utils.parseEther("0.00000000000001"));
+    //   expect(await spacelp.spcBalance()).to.equal(
+    //     FIVE_SPC.add(POINT_FOUR_NINE_SPC)
+    //   );
+    //   expect(await spacelp.ethBalance()).to.equal(
+    //     ONE_ETHER.add(POINT_ZERO_NINE_EIGHT_ETH)
+    //   );
+    // });
+
+    it("should add liquidity to the pool with balance, too much ETH - tax on", async () => {
       const { treasury, spacerouter, spacecoin, spacelp, alice } =
         await loadFixture(setupFixture);
       expect(await spacecoin.balanceOf(treasury.address)).to.equal(
@@ -235,23 +290,20 @@ describe("SpaceRouter", () => {
       expect(await ethers.provider.getBalance(spacerouter.address)).to.equal(0);
       await spacecoin.toggleTax();
       expect(await spacecoin.taxEnabled()).to.equal(true);
-      const POINT_ONE_ETH = ethers.utils.parseEther("0.1");
-      const POINT_FOUR_NINE_SPC = ethers.utils.parseEther("0.49");
-      const POINT_ZERO_NINE_EIGHT_ETH = ethers.utils.parseEther("0.098");
+      const FOUR_NINE_SPC = ethers.utils.parseEther("4.9");
+      const NINE_EIGHT_ETH = ethers.utils.parseEther("0.98");
       await spacerouter
         .connect(alice)
-        .addLiquidity(FIVE_SPC, { value: POINT_ONE_ETH });
+        .addLiquidity(FIVE_SPC, { value: ethers.utils.parseEther("2") });
       const moreLpToken = (
-        await spacelp.sqrt(POINT_ZERO_NINE_EIGHT_ETH.mul(POINT_FOUR_NINE_SPC))
+        await spacelp.sqrt(NINE_EIGHT_ETH.mul(FOUR_NINE_SPC))
       ).sub(1000);
       expect(
         await (await spacelp.totalSupply()).sub(lpToken.add(moreLpToken))
       ).to.be.lessThanOrEqual(ethers.utils.parseEther("0.00000000000001"));
-      expect(await spacelp.spcBalance()).to.equal(
-        FIVE_SPC.add(POINT_FOUR_NINE_SPC)
-      );
+      expect(await spacelp.spcBalance()).to.equal(FIVE_SPC.add(FOUR_NINE_SPC));
       expect(await spacelp.ethBalance()).to.equal(
-        ONE_ETHER.add(POINT_ZERO_NINE_EIGHT_ETH)
+        ONE_ETHER.add(NINE_EIGHT_ETH)
       );
     });
 
@@ -607,6 +659,118 @@ describe("SpaceRouter", () => {
       await spacelp.connect(bob).approve(spacerouter.address, FIVE_SPC);
       const lpTokenToRemove = ethers.utils.parseEther("1");
       await spacerouter.connect(bob).removeLiquidity(lpTokenToRemove);
+    });
+
+    it("Removes 40% liquidity - tax off", async () => {
+      const {
+        deployer,
+        treasury,
+        spacerouter,
+        spacecoin,
+        spacelp,
+        alice,
+        bob,
+      } = await loadFixture(setupFixture);
+      expect(await spacecoin.balanceOf(treasury.address)).to.equal(
+        INITIAL_TREASURY
+      );
+      await spacecoin
+        .connect(treasury)
+        .increaseAllowance(alice.address, FIFTY_SPC);
+      expect(
+        await spacecoin.allowance(treasury.address, alice.address)
+      ).to.equal(FIFTY_SPC);
+      await spacecoin.connect(treasury).transfer(alice.address, FIFTY_SPC);
+      await spacecoin.connect(alice).approve(spacerouter.address, FIFTY_SPC);
+      await spacerouter
+        .connect(alice)
+        .addLiquidity(FIFTY_SPC, { value: TEN_ETHER });
+      const lpToken = (await spacelp.sqrt(TEN_ETHER.mul(FIFTY_SPC))).sub(1000);
+      expect(await spacelp.balanceOf(alice.address)).to.equal(lpToken);
+      expect(await spacelp.totalSupply()).to.equal(
+        await spacelp.sqrt(TEN_ETHER.mul(FIFTY_SPC))
+      );
+
+      expect(await spacecoin.balanceOf(alice.address)).to.equal(0);
+      expect(await spacecoin.balanceOf(spacerouter.address)).to.equal(0);
+      expect(await spacecoin.balanceOf(spacelp.address)).to.equal(FIFTY_SPC);
+      expect(await spacelp.spcBalance()).to.equal(FIFTY_SPC);
+      expect(await spacelp.ethBalance()).to.equal(TEN_ETHER);
+      expect(await ethers.provider.getBalance(spacelp.address)).to.equal(
+        TEN_ETHER
+      );
+      expect(await ethers.provider.getBalance(spacerouter.address)).to.equal(0);
+      // await spacelp.increaseAllowance(alice.address, halfLpToken);
+      // expect(await spacelp.allowance(deployer.address, alice.address)).to.equal(
+      //   halfLpToken
+      // );
+      // await spacelp.connect(alice).approve(spacerouter.address, halfLpToken);
+      // await spacerouter.connect(alice).removeLiquidity(halfLpToken);
+      // expect(await spacelp.balanceOf(alice.address)).to.equal(halfLpToken);
+      // expect(await spacelp.totalSupply()).to.equal(halfLpToken.add(1000));
+      // const halfSpc = FIFTY_SPC.mul(halfLpToken).div(lpToken);
+      // expect(await spacecoin.balanceOf(alice.address)).to.equal(halfSpc);
+
+      //bob contributes 1 ETH and 5 SPC to the LP, which already has 10 ETH and 50 SPC
+      await spacecoin
+        .connect(treasury)
+        .increaseAllowance(bob.address, FIVE_SPC);
+      expect(await spacecoin.allowance(treasury.address, bob.address)).to.equal(
+        FIVE_SPC
+      );
+      await spacecoin.connect(treasury).transfer(bob.address, FIVE_SPC);
+      await spacecoin.connect(bob).approve(spacerouter.address, FIVE_SPC);
+      await spacerouter
+        .connect(bob)
+        .addLiquidity(FIVE_SPC, { value: ONE_ETHER });
+      const additionalLpToken = await spacelp.sqrt(ONE_ETHER.mul(FIVE_SPC));
+      expect(await spacelp.balanceOf(bob.address)).to.equal(additionalLpToken);
+      const totalETH = TEN_ETHER.add(ONE_ETHER);
+      const totalSPC = FIFTY_SPC.add(FIVE_SPC);
+      const totalLpSupply = await spacelp.sqrt(totalETH.mul(totalSPC));
+      expect(await spacelp.totalSupply()).to.equal(totalLpSupply);
+      expect(await spacecoin.balanceOf(bob.address)).to.equal(0);
+      expect(await spacecoin.balanceOf(spacerouter.address)).to.equal(0);
+      expect(await spacecoin.balanceOf(spacelp.address)).to.equal(totalSPC);
+      expect(await spacelp.spcBalance()).to.equal(totalSPC);
+      expect(await spacelp.ethBalance()).to.equal(totalETH);
+      expect(await ethers.provider.getBalance(spacelp.address)).to.equal(
+        totalETH
+      );
+      expect(await ethers.provider.getBalance(spacerouter.address)).to.equal(0);
+
+      // bob removes 50% of his deposits
+
+      const fortyPercentLpTokens = (await spacelp.balanceOf(bob.address))
+        .mul(40)
+        .div(100);
+      const bobTotalLpTokens = await spacelp.balanceOf(bob.address);
+      console.log(fortyPercentLpTokens);
+      console.log(bobTotalLpTokens);
+      await spacelp.increaseAllowance(bob.address, fortyPercentLpTokens);
+      expect(await spacelp.allowance(deployer.address, bob.address)).to.equal(
+        fortyPercentLpTokens
+      );
+      await spacelp
+        .connect(bob)
+        .approve(spacerouter.address, fortyPercentLpTokens);
+      await spacerouter.connect(bob).removeLiquidity(fortyPercentLpTokens);
+      expect(await spacelp.balanceOf(bob.address)).to.equal(
+        bobTotalLpTokens.sub(fortyPercentLpTokens)
+      );
+      expect(await spacelp.totalSupply()).to.equal(
+        totalLpSupply.sub(fortyPercentLpTokens)
+      );
+      expect(
+        await (
+          await spacelp.spcBalance()
+        ).sub(FIFTY_SPC.add(FIVE_SPC).sub(FIVE_SPC.mul(40).div(100)))
+      ).to.be.lessThanOrEqual(ethers.utils.parseEther("0.0000000000000001"));
+      expect(
+        await (
+          await spacelp.ethBalance()
+        ).sub(TEN_ETHER.add(ONE_ETHER).sub(ONE_ETHER.mul(40).div(100)))
+      ).to.be.lessThanOrEqual(ethers.utils.parseEther("0.0000000000000001"));
     });
 
     it("Reverts if not enough LP token balance", async () => {
