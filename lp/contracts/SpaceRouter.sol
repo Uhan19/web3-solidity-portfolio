@@ -10,10 +10,15 @@ contract SpaceRouter {
     /// @notice The SpaceCoin contract
     SpaceCoin public immutable spaceCoin;
 
+    /// @notice error returned when there are not enough SPC to be deposited
     error InsufficientSPCDeposit(uint256 spc);
+    /// @notice error returned when there are not enough ETH to be deposited
     error InsufficientETHDeposit(uint256 eth);
+    /// @notice error returned when the ETH refund fails
     error ETHRefundFailed();
+    /// @notice error returned when the swap amount returned is less than the min amount defined by the user
     error SlippageExceeded(uint256 amount);
+    /// @notice error returned when the amount of LP tokens to be withdrawn exceeds the user's balance
     error LpTokenBalanceExceeded(uint256 lpToken);
 
     constructor(SpaceLP _spaceLP, SpaceCoin _spaceCoin) { 
@@ -31,10 +36,10 @@ contract SpaceRouter {
         // uint256 spcOutOfSync = spaceCoin.balanceOf(address(spaceLP)) - spaceLP.spcBalance() + spc;
         uint256 spcAfterTax = spaceCoin.taxEnabled() ? spc - (spc * spaceCoin.TAX_RATE()) / 100 : spc;
         uint256 ethToBeDeposited = spaceLP.ethBalance() == 0 ? msg.value :
-            (spaceLP.ethBalance() * spcAfterTax) / spaceLP.spcBalance(); // optimalETH given deposited SPC
-        uint256 spcToBeDeposited = spaceLP.spcBalance() == 0 ? spc :
-            (spaceLP.spcBalance() * msg.value) / spaceLP.ethBalance(); // optimalSPC given deposited ETH
-        if (msg.value >= ethToBeDeposited) {
+            (spaceLP.ethBalance() * spcAfterTax) / spaceLP.spcBalance();
+        uint256 spcExpected = spaceLP.spcBalance() == 0 ? spc : 
+            (spaceLP.spcBalance() * msg.value) / spaceLP.ethBalance();
+        if (msg.value >= ethToBeDeposited) { 
             spaceCoin.transferFrom(msg.sender, address(spaceLP), spc);
             liquidity = spaceLP.deposit{value: ethToBeDeposited}(msg.sender);
             if (msg.value > ethToBeDeposited) {
@@ -43,18 +48,13 @@ contract SpaceRouter {
             }
             return liquidity;
         } else {
-            if (spcToBeDeposited > spc) revert InsufficientSPCDeposit(spcToBeDeposited);
-            uint256 ethDeposit = msg.value;
+            if (spcExpected > spc) revert InsufficientSPCDeposit(spcExpected);
+            uint256 spcToBeDeposited = spcExpected;
             if (spaceCoin.taxEnabled()) {
-                uint256 spcToBeDepositedTaxed = spcToBeDeposited - (spcToBeDeposited * spaceCoin.TAX_RATE()) / 100;
-                ethDeposit = (spaceLP.ethBalance() * spcToBeDepositedTaxed) / spaceLP.spcBalance(); 
-            }
+                spcToBeDeposited = (spcExpected * 100) / 98;
+            } 
             spaceCoin.transferFrom(msg.sender, address(spaceLP), spcToBeDeposited);
-            liquidity = spaceLP.deposit{value: ethDeposit}(msg.sender);
-            if (msg.value > ethDeposit) {
-                (bool success, ) = msg.sender.call{value: msg.value - ethDeposit}("");
-                if (!success) revert ETHRefundFailed();
-            }
+            liquidity = spaceLP.deposit{value: msg.value}(msg.sender);
             return liquidity;
         }
     }
@@ -69,11 +69,11 @@ contract SpaceRouter {
 
     /// @notice Swaps ETH for SPC in LP contract
     /// @param spcOutMin The minimum acceptable amout of SPC to be received
-    function swapETHForSPC(uint256 spcOutMin) public payable {
+    function swapETHForSPC(uint256 spcOutMin) public payable {  
         if(msg.value == 0) revert InsufficientETHDeposit(msg.value);
-        uint256 newEthBalanceWithFee = spaceLP.ethBalance() + (msg.value - (msg.value / 100));
-        uint256 expectedSPC = spaceLP.spcBalance() - (spaceLP.ethBalance() * spaceLP.spcBalance() / (newEthBalanceWithFee));
-        if (expectedSPC < spcOutMin) revert SlippageExceeded(expectedSPC);
+        uint256 expectedSPC = spaceLP.quoteSwapPrice(msg.value, 0);
+        uint256 expectedSPCWithTax = spaceCoin.taxEnabled() ? expectedSPC - (expectedSPC * spaceCoin.TAX_RATE()) / 100 : expectedSPC;
+        if (expectedSPCWithTax < spcOutMin) revert SlippageExceeded(expectedSPCWithTax);
         spaceLP.swap{value: msg.value}(msg.sender, true);
     }
 
@@ -82,11 +82,10 @@ contract SpaceRouter {
     /// @param ethOutMin The minimum acceptable amount of ETH to be received
     function swapSPCForETH(uint256 spcIn, uint256 ethOutMin) public {
         if (spcIn == 0) revert InsufficientSPCDeposit(spcIn);
-        uint256 newSpcBalanceWithFee = spaceLP.spcBalance() + (spcIn - (spcIn / 100));
-        uint expectedETH = spaceLP.ethBalance() - (spaceLP.ethBalance() * spaceLP.spcBalance() / newSpcBalanceWithFee);
+        uint256 spcInWithTax = spaceCoin.taxEnabled() ? spcIn - (spcIn * spaceCoin.TAX_RATE()) / 100 : spcIn;
+        uint256 expectedETH = spaceLP.quoteSwapPrice(0, spcInWithTax);
         if (expectedETH < ethOutMin) revert SlippageExceeded(expectedETH);
         spaceCoin.transferFrom(msg.sender, address(spaceLP), spcIn);
         spaceLP.swap(msg.sender, false);
     }
-
 }

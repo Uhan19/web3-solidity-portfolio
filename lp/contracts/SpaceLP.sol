@@ -4,37 +4,65 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./SpaceCoin.sol";
 
-import "hardhat/console.sol";
-
 contract SpaceLP is ERC20 {
 
-    // do I need a MINIMUM_LIQUIDITY constant? (avoid division by 0)
-    uint256 constant MINIMUM_LIQUIDITY = 1000;
+    /// @notice The minimum amount of liquidity that must be provided to create a pool
+    uint256 constant MINIMUM_LIQUIDITY = 1000; //wei
+    /// @notice The SpaceCoin token contract
     SpaceCoin public immutable spaceCoin;
     /// @notice The balance of SPC in the LP contract
     uint256 public spcBalance;
     /// @notice The balance of ETH in the LP contract
     uint256 public ethBalance;
+    /// @notice bool to prevent reentrancy
+    bool private unlocked;
 
+    /// @notice Emitted when liquidity is deposited
     event LiquidityDeposited(address indexed sender, uint256 spcDeposited, uint256 ethDeposited);
+    /// @notice Emitted when SPC is Swapped for ETH
     event SPCSwappedForETH(uint256 ethOut);
+    /// @notice Emitted when ETH is Swapped for SPC
     event ETHSwappedForSPC(uint256 spcOut);
 
+    /// @notice error returned when not enough funds are deposited
     error NotEnoughFundsProvided();
+    /// @notice error returned when there is not enough liquidity in the pool 
     error InsufficientLiquidity(uint256 minimumLiquidity);
+    /// @notice error returned when sending ETH fails
     error EthTransferFailed();
+    /// @notice error returned when there are no funds to be withdrawn
     error ZeroAmountToWithdraw(uint8 zero); // check uint8 here
+    /// @notice error returned when there are no LP tokens
     error ZeroTokenBalance(uint8 zero); // check uint8 here
+    /// @notice error returned when there are no LP token supply
     error ZeroTokenTotalSupply(uint8 zero); // check uint8 here
-    // error SpcTransferFailed(); 
+    /// @notice error returned when the input value provided are invalid when obtaining swap price quotes
+    error InvalidSwap(); // check uint8 here
+    /// @notice error returned when the new K is less than the old K, indicating a swap failure
+    error SwapFailed();
+    /// @notice reentrancy guard
+    error ReentrantDetected();
 
+    /// @notice initialize the spaceCoin contract
     constructor(SpaceCoin _spaceCoin) ERC20("SPC-ETH LP Token", "SPC-ETH") {
         spaceCoin = _spaceCoin;
     }
 
+    /// @notice modifier to prevent reentrancy
+    /** @dev if the contract the 'unlocked' bool is true, then that means a 
+     *       function is already being executed, and the modifier will revert.
+     *       Once the function has finished executing, the 'unlocked' bool is set to false again.
+     *  */ 
+    modifier lock() {
+        if (unlocked) revert ReentrantDetected();
+        unlocked = true;
+        _;
+        unlocked = false;
+    }
+
     /// @notice Adds ETH-SPC liquidity to LP contract
     /// @param to The address that will receive the LP tokens
-    function deposit(address to) external payable returns (uint256 liquidity) {
+    function deposit(address to) external lock payable returns (uint256 liquidity) {
         uint256 lpTokenSupply = totalSupply();
         uint256 spcDeposited = spaceCoin.balanceOf(address(this)) - spcBalance;
         uint256 ethDeposited = address(this).balance - ethBalance;
@@ -46,7 +74,6 @@ contract SpaceLP is ERC20 {
             _mint(address(1), MINIMUM_LIQUIDITY); 
         } else {
             liquidity = min((lpTokenSupply * spcDeposited) / spcBalance, (lpTokenSupply * ethDeposited) / ethBalance);
-            // console.log("liquidity: %s", liquidity);
             if (liquidity == 0) revert InsufficientLiquidity(liquidity); // I dont think this is needed, already checking for 0 above
             _mint(to, liquidity);
         }
@@ -59,52 +86,41 @@ contract SpaceLP is ERC20 {
 
     /// @notice Returns ETH-SPC liquidity to liquidity provider
     /// @param to The address that will receive the outbound token pair
-    function withdraw(address to) public {
+    function withdraw(address to) public lock {
         // if (balanceOf(to) == 0) revert AddressHasNoLpTokens();
         uint256 lpTotalSupply = totalSupply();
         uint256 lpTokenBalance = balanceOf(address(this));
-        console.log("lpTotalSupply: %s", lpTotalSupply);
         if (lpTotalSupply == 0) revert ZeroTokenTotalSupply(0);
         if (lpTokenBalance == 0) revert ZeroTokenBalance(0);
         uint256 spcOut = spcBalance * lpTokenBalance / lpTotalSupply;
         uint256 ethOut = ethBalance * lpTokenBalance / lpTotalSupply;
-        console.log("spcOut: %s", spcOut);
-        console.log("ethOut: %s", ethOut);
         if (spcOut == 0 || ethOut == 0) revert ZeroAmountToWithdraw(0); // is this possible?
         _burn(address(this), balanceOf(address(this)));
         spaceCoin.transfer(to, spcOut);
         (bool success, ) = to.call{value: ethOut}("");
         if (!success) revert EthTransferFailed();
-        spcBalance = spaceCoin.balanceOf(address(this)) - spcOut;
-        ethBalance = address(this).balance - ethOut;
+        spcBalance = spaceCoin.balanceOf(address(this));
+        ethBalance = address(this).balance;
     }
 
     /// @notice Swaps ETH for SPC, or SPC for ETH
     /// @param to The address that will receive the outbound SPC or ETH
     /// @param isETHtoSPC Boolean indicating the direction of the trade
-    function swap(address to, bool isETHtoSPC) public payable { 
+    function swap(address to, bool isETHtoSPC) public lock payable { 
         if (spcBalance == 0 || ethBalance == 0) revert InsufficientLiquidity(0);
         uint256 kBeforeSwap = spcBalance * ethBalance;
         if (isETHtoSPC) {
-            // calulate ETH minus swap fee (1%)
             uint ethDeposited = address(this).balance - ethBalance;
             uint newEthBalanceWithFee = ethBalance + (ethDeposited - (ethDeposited / 100));
             uint256 newSPCBalance = (spcBalance * ethBalance) / newEthBalanceWithFee;
-            console.log("spcOout", spcBalance - newSPCBalance);
             spaceCoin.transfer(to, spcBalance - newSPCBalance); // how do I check if this is successful before the event is emitted? 
             emit SPCSwappedForETH(spcBalance - newSPCBalance);
             spcBalance = newSPCBalance;
             ethBalance = address(this).balance;
         } else {
-            // calulate SPC minus swap fee (1%)
             uint256 spcDeposited = spaceCoin.balanceOf(address(this)) - spcBalance;
-            // console.log("spcDeposited", spcDeposited);
             uint256 newSPCBalanceWithFee = spcBalance + (spcDeposited - spcDeposited / 100);
             uint256 newEthBalance = (ethBalance * spcBalance) / newSPCBalanceWithFee;
-            // console.log("newSPCBalanceWithFee", newSPCBalanceWithFee);
-            // console.log("newEthBalance", newEthBalance);
-            // console.log("ethBalance", ethBalance);
-            // console.log("ethOut", ethBalance - newEthBalance);
             (bool success, ) = to.call{value: ethBalance - newEthBalance}("");
             if (!success) revert EthTransferFailed();
             emit SPCSwappedForETH(ethBalance - newEthBalance);
@@ -115,11 +131,30 @@ contract SpaceLP is ERC20 {
         assert(kAfterSwap > kBeforeSwap);
     }
 
-    /// @notice this function is a recovery method for when the external and internal state of the LP is out of sync
-    /// i.e. if someone sent funds directly to the LP contract, but failed to call deposit() or swap() to update the reserves
-    // function sync() public {
-    //     // update the reserves
-    // }
+
+    /// @notice provides FE with a price quote for a swap
+    /// @param ethAmount The amount of ETH to be swapped for SPC
+    /// @param spcAmount The amount of SPC to be swapped for ETH
+    function quoteSwapPrice(uint256 ethAmount, uint256 spcAmount) external view returns (uint256) {
+        if ((ethAmount == 0 && spcAmount == 0) || (ethAmount != 0 && spcAmount != 0)) revert InvalidSwap();
+        if (ethAmount > 0) {
+            uint256 ethAmountWithFee = ethAmount - (ethAmount / 100);
+            uint256 expectedEthBalance = ethBalance + ethAmountWithFee; 
+            uint256 expectedSpcBalance = (spcBalance * ethBalance) / expectedEthBalance;
+            uint256 ethFinalBalance = ethBalance + ethAmount;
+            if (expectedSpcBalance * ethFinalBalance < spcBalance * ethBalance) revert SwapFailed();
+            uint256 spcPriceQuote = spcBalance - expectedSpcBalance;
+            return spcPriceQuote;
+        } else {
+            uint256 spcAmountWithFee = spcAmount - (spcAmount / 100);
+            uint256 expectedSpcBalance = spcBalance + spcAmountWithFee;
+            uint256 expectedEthBalance = (ethBalance * spcBalance) / expectedSpcBalance;
+            uint256 spcFinalBalance = spcBalance + spcAmount;
+            if (spcFinalBalance * expectedEthBalance < spcBalance * ethBalance) revert SwapFailed();
+            uint256 ethPriceQuote = ethBalance - expectedEthBalance;
+            return ethPriceQuote;
+        }
+    }
 
     /// @notice returns the minimum of two numbers
     function min(uint256 a, uint256 b) internal pure returns (uint256) {
@@ -130,6 +165,7 @@ contract SpaceLP is ERC20 {
     /** @dev this function uses the Babylonian method to calculate the square root
         https://ethereum.stackexchange.com/questions/2910/how-to-calculate-square-root-in-solidity
     */
+    /// @param num The number to be square rooted
     function sqrt(uint256 num) public pure returns (uint256 y) {
         uint z = (num + 1) / 2;
         y = num;

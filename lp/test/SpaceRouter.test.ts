@@ -35,8 +35,8 @@ import { ICO, SpaceCoin, SpaceLP, SpaceRouter } from "../typechain-types"; // es
 // ----------------------------------------------------------------------------
 // We've put these here for your convenience, and to make you aware these built-in
 // Hardhat functions exist. Feel free to use them if they are helpful!
-const SECONDS_IN_DAY: number = 60 * 60 * 24;
 const ONE_ETHER: BigNumber = ethers.utils.parseEther("1");
+const POINT_FIVE_ETHER: BigNumber = ethers.utils.parseEther("0.5");
 const FIVE_SPC: BigNumber = ethers.utils.parseEther("5");
 const TEN_ETHER: BigNumber = ethers.utils.parseEther("10");
 const FIFTY_SPC: BigNumber = ethers.utils.parseEther("50");
@@ -447,7 +447,7 @@ describe("SpaceRouter", () => {
         ethers.utils.parseEther("2")
       );
     });
-    // adds liquidity with extra spc - tax off
+
     it("Adds liquidity with extra spc - tax off", async () => {
       const { treasury, spacerouter, spacecoin, spacelp, alice } =
         await loadFixture(setupFixture);
@@ -530,10 +530,145 @@ describe("SpaceRouter", () => {
           .addLiquidity(FIVE_SPC, { value: ethers.utils.parseEther("0") })
       ).to.be.revertedWithCustomError(spacelp, "NotEnoughFundsProvided");
     });
-    // adds liquidity with extra eth - tax on
-    it("Adds liquidity with extra eth - tax on", async () => {});
+
+    it("Adds liquidity with slightly more SPC - tax on", async () => {
+      const { treasury, spacerouter, spacecoin, spacelp, alice } =
+        await loadFixture(setupFixture);
+      expect(await spacecoin.taxEnabled()).to.equal(false);
+      expect(await spacecoin.balanceOf(treasury.address)).to.equal(
+        INITIAL_TREASURY
+      );
+      await spacecoin
+        .connect(treasury)
+        .increaseAllowance(alice.address, FIFTY_SPC);
+      expect(
+        await spacecoin.allowance(treasury.address, alice.address)
+      ).to.equal(FIFTY_SPC);
+      await spacecoin.connect(treasury).transfer(alice.address, FIFTY_SPC);
+      await spacecoin.connect(alice).approve(spacerouter.address, FIFTY_SPC);
+
+      // deposit 5 spc and 1 eth to LP, 1:5 ratio
+      await spacerouter
+        .connect(alice)
+        .addLiquidity(FIVE_SPC, { value: ONE_ETHER });
+      const lpToken = (await spacelp.sqrt(ONE_ETHER.mul(FIVE_SPC))).sub(1000);
+      expect(await spacelp.balanceOf(alice.address)).to.equal(lpToken);
+      expect(await spacelp.totalSupply()).to.equal(
+        await spacelp.sqrt(ONE_ETHER.mul(FIVE_SPC))
+      );
+      expect(await spacelp.spcBalance()).to.equal(FIVE_SPC);
+      expect(await spacelp.ethBalance()).to.equal(ONE_ETHER);
+      expect(
+        await (await spacelp.spcBalance()).div(await spacelp.ethBalance())
+      ).to.equal(5);
+
+      const initialK = (await spacelp.spcBalance()).mul(
+        await spacelp.ethBalance()
+      );
+
+      // turn tax on, and deposit slightly more SPC amounts
+      await spacecoin.toggleTax();
+      expect(await spacecoin.taxEnabled()).to.equal(true);
+      const SLIGHTLY_MORE_THAN_OPTIMAL_BEFORE_TAX_SPC =
+        ethers.utils.parseEther("2.5511");
+      await spacerouter
+        .connect(alice)
+        .addLiquidity(SLIGHTLY_MORE_THAN_OPTIMAL_BEFORE_TAX_SPC, {
+          value: POINT_FIVE_ETHER,
+        });
+      const OPTIMAL_SPC = ethers.utils.parseEther("2.5");
+      const k = ONE_ETHER.add(POINT_FIVE_ETHER).mul(FIVE_SPC.add(OPTIMAL_SPC));
+      expect(await spacelp.totalSupply()).to.equal(await spacelp.sqrt(k));
+      expect(await spacelp.balanceOf(alice.address)).to.equal(
+        await (await spacelp.sqrt(k)).sub(1000)
+      );
+      expect(await spacelp.spcBalance()).to.equal(FIVE_SPC.add(OPTIMAL_SPC));
+      expect(await spacelp.ethBalance()).to.equal(
+        ONE_ETHER.add(POINT_FIVE_ETHER)
+      );
+      // check that pool ratio is preserved
+      expect(
+        await (await spacelp.spcBalance()).div(await spacelp.ethBalance())
+      ).to.equal(5);
+
+      const finalK = (await spacelp.spcBalance()).mul(
+        await spacelp.ethBalance()
+      );
+
+      // check that k is increased after adding liquidity
+      expect(finalK).to.greaterThanOrEqual(initialK);
+    });
+
     // adds liquidity with extra spc - tax on
-    it("Adds liquidity with extra spc - tax on", async () => {});
+    it("Adds liquidity with slightly less spc - tax on", async () => {
+      const { treasury, spacerouter, spacecoin, spacelp, alice } =
+        await loadFixture(setupFixture);
+      expect(await spacecoin.taxEnabled()).to.equal(false);
+      expect(await spacecoin.balanceOf(treasury.address)).to.equal(
+        INITIAL_TREASURY
+      );
+      await spacecoin
+        .connect(treasury)
+        .increaseAllowance(alice.address, FIFTY_SPC);
+      expect(
+        await spacecoin.allowance(treasury.address, alice.address)
+      ).to.equal(FIFTY_SPC);
+      await spacecoin.connect(treasury).transfer(alice.address, FIFTY_SPC);
+      await spacecoin.connect(alice).approve(spacerouter.address, FIFTY_SPC);
+
+      // deposit 5 spc and 1 eth to LP, 1:5 ratio
+      await spacerouter
+        .connect(alice)
+        .addLiquidity(FIVE_SPC, { value: ONE_ETHER });
+      const lpToken = (await spacelp.sqrt(ONE_ETHER.mul(FIVE_SPC))).sub(1000);
+      expect(await spacelp.balanceOf(alice.address)).to.equal(lpToken);
+      expect(await spacelp.totalSupply()).to.equal(
+        await spacelp.sqrt(ONE_ETHER.mul(FIVE_SPC))
+      );
+      expect(await spacelp.spcBalance()).to.equal(FIVE_SPC);
+      expect(await spacelp.ethBalance()).to.equal(ONE_ETHER);
+      expect(
+        await (await spacelp.spcBalance()).div(await spacelp.ethBalance())
+      ).to.equal(5);
+
+      const initialK = (await spacelp.spcBalance()).mul(
+        await spacelp.ethBalance()
+      );
+
+      // turn tax on, and deposit slightly less SPC amounts
+      await spacecoin.toggleTax();
+      expect(await spacecoin.taxEnabled()).to.equal(true);
+      const SLIGHTLY_LESS_THAN_OPTIMAL_BEFORE_TAX_SPC =
+        ethers.utils.parseEther("2.54");
+      await spacerouter
+        .connect(alice)
+        .addLiquidity(SLIGHTLY_LESS_THAN_OPTIMAL_BEFORE_TAX_SPC, {
+          value: POINT_FIVE_ETHER,
+        });
+
+      const OPTIMAL_SPC = SLIGHTLY_LESS_THAN_OPTIMAL_BEFORE_TAX_SPC.sub(
+        SLIGHTLY_LESS_THAN_OPTIMAL_BEFORE_TAX_SPC.mul(2).div(100)
+      );
+      const OPTIMAL_ETH = ONE_ETHER.mul(OPTIMAL_SPC).div(FIVE_SPC);
+      const k = ONE_ETHER.add(OPTIMAL_ETH).mul(FIVE_SPC.add(OPTIMAL_SPC));
+      expect(await spacelp.totalSupply()).to.equal(await spacelp.sqrt(k));
+      expect(await spacelp.balanceOf(alice.address)).to.equal(
+        await (await spacelp.sqrt(k)).sub(1000)
+      );
+      expect(await spacelp.spcBalance()).to.equal(FIVE_SPC.add(OPTIMAL_SPC));
+      expect(await spacelp.ethBalance()).to.equal(ONE_ETHER.add(OPTIMAL_ETH));
+      // check that pool ratio is preserved
+      expect(
+        await (await spacelp.spcBalance()).div(await spacelp.ethBalance())
+      ).to.equal(5);
+
+      const finalK = (await spacelp.spcBalance()).mul(
+        await spacelp.ethBalance()
+      );
+
+      // check that k is increased after adding liquidity
+      expect(finalK).to.greaterThanOrEqual(initialK);
+    });
   });
 
   describe("Remove liquidity", () => {
@@ -687,8 +822,6 @@ describe("SpaceRouter", () => {
         .mul(40)
         .div(100);
       const bobTotalLpTokens = await spacelp.balanceOf(bob.address);
-      console.log(fortyPercentLpTokens);
-      console.log(bobTotalLpTokens);
       await spacelp.increaseAllowance(bob.address, fortyPercentLpTokens);
       expect(await spacelp.allowance(deployer.address, bob.address)).to.equal(
         fortyPercentLpTokens
@@ -967,14 +1100,6 @@ describe("SpaceRouter", () => {
       expect(await spacelp.ethBalance()).to.equal(
         await ethers.provider.getBalance(spacelp.address)
       );
-      console.log("ethBalance", await spacelp.ethBalance());
-      console.log("expectedEthOut", expectedEthOut);
-      console.log(
-        "total",
-        await (
-          await ethers.provider.getBalance(spacelp.address)
-        ).add(ethers.utils.parseEther(expectedEthOut.toString()))
-      );
       expect(
         await (
           await ethers.provider.getBalance(spacelp.address)
@@ -1030,14 +1155,6 @@ describe("SpaceRouter", () => {
       const expectedEthOut = 10 - expectedEthBalance;
       expect(await spacelp.ethBalance()).to.equal(
         await ethers.provider.getBalance(spacelp.address)
-      );
-      console.log("ethBalance", await spacelp.ethBalance());
-      console.log("expectedEthOut", expectedEthOut);
-      console.log(
-        "total",
-        await (
-          await ethers.provider.getBalance(spacelp.address)
-        ).add(ethers.utils.parseEther(expectedEthOut.toString()))
       );
       expect(await spacelp.spcBalance()).to.equal(
         FIFTY_SPC.add(FIVE_SPC_MINUS_TAX)
