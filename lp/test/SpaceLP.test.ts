@@ -192,4 +192,140 @@ describe("SpaceLP", function () {
       ).to.be.revertedWithCustomError(spacelp, "InsufficientLiquidity");
     });
   });
+
+  describe("quoteSwapPrice", () => {
+    it("Should return SPC price quote if ETH passed in", async () => {
+      const { spacelp, alice, spaceCoin, treasury } = await loadFixture(
+        setupFixture
+      );
+      const amount = ethers.utils.parseEther("5");
+      const initialTreasuryBalance = ethers.utils.parseEther("350000");
+      expect(await spaceCoin.taxEnabled()).to.equal(false);
+      expect(await spaceCoin.balanceOf(treasury.address)).to.equal(
+        initialTreasuryBalance
+      );
+      await spaceCoin
+        .connect(treasury)
+        .increaseAllowance(alice.address, amount);
+      expect(
+        await spaceCoin.allowance(treasury.address, alice.address)
+      ).to.equal(amount);
+      await spaceCoin.connect(treasury).approve(alice.address, amount);
+      await spaceCoin
+        .connect(alice)
+        .transferFrom(treasury.address, spacelp.address, amount);
+      expect(await spaceCoin.balanceOf(treasury.address)).to.equal(
+        initialTreasuryBalance.sub(amount)
+      );
+      expect(await spaceCoin.balanceOf(spacelp.address)).to.equal(amount);
+      spacelp.deposit(alice.address, { value: ONE_ETHER });
+
+      expect(await spacelp.spcBalance()).to.be.equals(amount);
+      expect(await spacelp.ethBalance()).to.equal(ONE_ETHER);
+      expect(
+        await spacelp.quoteSwapPrice(ethers.utils.parseEther("1"), 0)
+      ).to.equal(ethers.utils.parseEther("2.487437185929648242"));
+    });
+
+    it("Should return ETH price quote if SPC passed in", async () => {
+      const { spacelp, alice, spaceCoin, treasury } = await loadFixture(
+        setupFixture
+      );
+      const amount = ethers.utils.parseEther("5");
+      const initialTreasuryBalance = ethers.utils.parseEther("350000");
+      expect(await spaceCoin.taxEnabled()).to.equal(false);
+      expect(await spaceCoin.balanceOf(treasury.address)).to.equal(
+        initialTreasuryBalance
+      );
+      await spaceCoin
+        .connect(treasury)
+        .increaseAllowance(alice.address, amount);
+      expect(
+        await spaceCoin.allowance(treasury.address, alice.address)
+      ).to.equal(amount);
+      await spaceCoin.connect(treasury).approve(alice.address, amount);
+      await spaceCoin
+        .connect(alice)
+        .transferFrom(treasury.address, spacelp.address, amount);
+      expect(await spaceCoin.balanceOf(treasury.address)).to.equal(
+        initialTreasuryBalance.sub(amount)
+      );
+      expect(await spaceCoin.balanceOf(spacelp.address)).to.equal(amount);
+      spacelp.deposit(alice.address, { value: ONE_ETHER });
+
+      expect(await spacelp.spcBalance()).to.be.equals(amount);
+      expect(await spacelp.ethBalance()).to.equal(ONE_ETHER);
+      expect(
+        await spacelp.quoteSwapPrice(0, ethers.utils.parseEther("1"))
+      ).to.equal(ethers.utils.parseEther("0.165275459098497496"));
+    });
+
+    it("Should revert if 0 is passed in for both params", async () => {
+      const { spacelp, alice, spaceCoin, treasury } = await loadFixture(
+        setupFixture
+      );
+      const amount = ethers.utils.parseEther("5");
+      const initialTreasuryBalance = ethers.utils.parseEther("350000");
+      expect(await spaceCoin.taxEnabled()).to.equal(false);
+      expect(await spaceCoin.balanceOf(treasury.address)).to.equal(
+        initialTreasuryBalance
+      );
+      await spaceCoin
+        .connect(treasury)
+        .increaseAllowance(alice.address, amount);
+      expect(
+        await spaceCoin.allowance(treasury.address, alice.address)
+      ).to.equal(amount);
+      await spaceCoin.connect(treasury).approve(alice.address, amount);
+      await spaceCoin
+        .connect(alice)
+        .transferFrom(treasury.address, spacelp.address, amount);
+      expect(await spaceCoin.balanceOf(treasury.address)).to.equal(
+        initialTreasuryBalance.sub(amount)
+      );
+      expect(await spaceCoin.balanceOf(spacelp.address)).to.equal(amount);
+      spacelp.deposit(alice.address, { value: ONE_ETHER });
+
+      expect(await spacelp.spcBalance()).to.be.equals(amount);
+      expect(await spacelp.ethBalance()).to.equal(ONE_ETHER);
+      await expect(spacelp.quoteSwapPrice(0, 0)).to.be.revertedWithCustomError(
+        spacelp,
+        "InvalidSwap"
+      );
+    });
+
+    it("Should revert if non-zero is passed in for both params", async () => {
+      const { spacelp, alice, spaceCoin, treasury } = await loadFixture(
+        setupFixture
+      );
+      const amount = ethers.utils.parseEther("5");
+      const initialTreasuryBalance = ethers.utils.parseEther("350000");
+      expect(await spaceCoin.taxEnabled()).to.equal(false);
+      expect(await spaceCoin.balanceOf(treasury.address)).to.equal(
+        initialTreasuryBalance
+      );
+      await spaceCoin
+        .connect(treasury)
+        .increaseAllowance(alice.address, amount);
+      expect(
+        await spaceCoin.allowance(treasury.address, alice.address)
+      ).to.equal(amount);
+      await spaceCoin.connect(treasury).approve(alice.address, amount);
+      await spaceCoin
+        .connect(alice)
+        .transferFrom(treasury.address, spacelp.address, amount);
+      expect(await spaceCoin.balanceOf(treasury.address)).to.equal(
+        initialTreasuryBalance.sub(amount)
+      );
+      expect(await spaceCoin.balanceOf(spacelp.address)).to.equal(amount);
+      spacelp.deposit(alice.address, { value: ONE_ETHER });
+
+      expect(await spacelp.spcBalance()).to.be.equals(amount);
+      expect(await spacelp.ethBalance()).to.equal(ONE_ETHER);
+      await expect(spacelp.quoteSwapPrice(1, 1)).to.be.revertedWithCustomError(
+        spacelp,
+        "InvalidSwap"
+      );
+    });
+  });
 });
