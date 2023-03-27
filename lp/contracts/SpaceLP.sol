@@ -92,19 +92,16 @@ contract SpaceLP is ERC20 {
     /// @notice Returns ETH-SPC liquidity to liquidity provider
     /// @param to The address that will receive the outbound token pair
     function withdraw(address to) public lock {
-        // if (balanceOf(to) == 0) revert AddressHasNoLpTokens();
-        // uint256 lpTotalSupply = totalSupply();
         uint256 lpTokenBalance = balanceOf(address(this));
         if (totalSupply() == 0) revert ZeroTokenTotalSupply(0);
         if (lpTokenBalance == 0) revert ZeroTokenBalance(0);
         uint256 spcOut = spcBalance * lpTokenBalance / totalSupply();
         uint256 ethOut = ethBalance * lpTokenBalance / totalSupply();
-        if (spcOut == 0 || ethOut == 0) revert ZeroAmountToWithdraw(0); // is this possible?
+        if (spcOut == 0 || ethOut == 0) revert ZeroAmountToWithdraw(0);
         _burn(address(this), balanceOf(address(this)));
 
         bool transferSuccess = spaceCoin.transfer(to, spcOut);
          if (!transferSuccess) revert SpcTransferFailed();
-
         (bool success, ) = to.call{value: ethOut}("");
         if (!success) revert EthTransferFailed();
 
@@ -120,10 +117,10 @@ contract SpaceLP is ERC20 {
         if (spcBalance == 0 || ethBalance == 0) revert InsufficientLiquidity(0);
         uint256 kBeforeSwap = spcBalance * ethBalance;
         if (isETHtoSPC) {
-            uint ethDeposited = address(this).balance - ethBalance;
-            uint newEthBalanceWithFee = ethBalance + (ethDeposited - (ethDeposited / 100));
+            uint256 ethDeposited = address(this).balance - ethBalance;
+            uint256 newEthBalanceWithFee = ethBalance + (ethDeposited - (ethDeposited / 100));
             uint256 newSPCBalance = kBeforeSwap / newEthBalanceWithFee;
-            bool success = spaceCoin.transfer(to, spcBalance - newSPCBalance); // how do I check if this is successful before the event is emitted? 
+            bool success = spaceCoin.transfer(to, spcBalance - newSPCBalance);
             if (!success) revert SpcTransferFailed();
             emit ETHSwappedForSPC(spcBalance - newSPCBalance);
         } else {
@@ -146,17 +143,25 @@ contract SpaceLP is ERC20 {
     /// @param spcAmount The amount of SPC to be swapped for ETH
     function getSwapPrice(uint256 ethAmount, uint256 spcAmount) external view returns (uint256) {
         if ((ethAmount == 0 && spcAmount == 0) || (ethAmount != 0 && spcAmount != 0)) revert InvalidSwap();
+        // swapping ETH for SPC
         if (ethAmount > 0) {
+            // get eth amount after swap fee to calculate price quote
             uint256 ethAmountWithFee = ethAmount - (ethAmount / 100);
+            // get total ETH balance after swap
             uint256 expectedEthBalance = ethBalance + ethAmountWithFee; 
+            // get total SPC balance after swap
             uint256 expectedSpcBalance = (spcBalance * ethBalance) / expectedEthBalance;
             uint256 ethFinalBalance = ethBalance + ethAmount;
             if (expectedSpcBalance * ethFinalBalance < spcBalance * ethBalance) revert SwapFailed();
             uint256 spcPriceQuote = spcBalance - expectedSpcBalance;
             return spcPriceQuote;
         } else {
+            // swapping SPC for ETH
+            // get spc amount after swap fee to calculate price quote
             uint256 spcAmountWithFee = spcAmount - (spcAmount / 100);
+            // get total SPC balance after swap
             uint256 expectedSpcBalance = spcBalance + spcAmountWithFee;
+            // get total ETH balance after swap
             uint256 expectedEthBalance = (ethBalance * spcBalance) / expectedSpcBalance;
             uint256 spcFinalBalance = spcBalance + spcAmount;
             if (spcFinalBalance * expectedEthBalance < spcBalance * ethBalance) revert SwapFailed();

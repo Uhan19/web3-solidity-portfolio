@@ -23,9 +23,9 @@ async function main() {
   );
 
   console.log("Ico address:", ico.address);
-  console.log("spacecoin address", await spacecoin.address);
-  console.log("spaceLP address", await spaceLP.address);
-  console.log("spaceRouter address", await spaceRouter.address);
+  console.log("spacecoin address", spacecoin.address);
+  console.log("spaceRouter address", spaceRouter.address);
+  console.log("spaceLP address", spaceLP.address);
 }
 
 main()

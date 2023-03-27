@@ -38,9 +38,8 @@ contract SpaceRouter {
     /// @param spc The desired amount of SPC to be deposited
     /// @dev The desired amount of ETH to be deposited is indicated by 
     //    msg.value
-    // add a reentrancy guard to protect against .call() reentry
     function addLiquidity(uint256 spc) public payable {
-        if (spc <= 0 || msg.value <= 0) revert InsufficientDeposit();
+        if (spc == 0 || msg.value == 0) revert InsufficientDeposit();
         // calculate spc if spaceCoin.taxEnabled() is true
         uint256 spcAfterTax = spaceCoin.taxEnabled() ? spc - (spc * spaceCoin.TAX_RATE()) / 100 : spc;
 
