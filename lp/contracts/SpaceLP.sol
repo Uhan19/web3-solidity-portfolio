@@ -35,13 +35,13 @@ contract SpaceLP is ERC20 {
     /// @notice error returned when sending ETH fails
     error EthTransferFailed();
     /// @notice error returned when there are no funds to be withdrawn
-    error ZeroAmountToWithdraw(uint8 zero); // check uint8 here
+    error ZeroAmountToWithdraw(uint8 zero);
     /// @notice error returned when there are no LP tokens
-    error ZeroTokenBalance(uint8 zero); // check uint8 here
+    error ZeroTokenBalance(uint8 zero); 
     /// @notice error returned when there are no LP token supply
-    error ZeroTokenTotalSupply(uint8 zero); // check uint8 here
+    error ZeroTokenTotalSupply(uint8 zero);
     /// @notice error returned when the input value provided are invalid when obtaining swap price quotes
-    error InvalidSwap(); // check uint8 here
+    error InvalidSwap();
     /// @notice error returned when the new K is less than the old K, indicating a swap failure
     error SwapFailed();
     /// @notice reentrancy guard
@@ -80,7 +80,7 @@ contract SpaceLP is ERC20 {
             _mint(address(1), MINIMUM_LIQUIDITY); 
         } else {
             uint256 liquidity = min((lpTokenSupply * spcDeposited) / spcBalance, (lpTokenSupply * ethDeposited) / ethBalance);
-            if (liquidity == 0) revert InsufficientLiquidity(liquidity); // I dont think this is needed, already checking for 0 above
+            if (liquidity == 0) revert InsufficientLiquidity(liquidity);
             _mint(to, liquidity);
         }
         spcBalance = spaceCoin.balanceOf(address(this));
