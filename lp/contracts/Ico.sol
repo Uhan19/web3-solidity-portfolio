@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.8.17;
+pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./SpaceCoin.sol";
@@ -108,8 +108,7 @@ contract ICO {
     }
 
     /// @notice Moves invested funds from the ICO contract
-    /// to the treasury address
-    /// only treasury can call this function
+    /// @dev only treasury can withdraw funds, only possible after ICO is moved to the OPEN phase
     function withdraw() public {
         if(msg.sender != TREASURY_ADDRESS) revert WithdrawNotAuthorized();
         if(currentPhase != Phases.OPEN) revert CannotWithdrawBeforeOpenPhase(currentPhase);

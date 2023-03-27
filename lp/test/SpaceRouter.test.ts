@@ -511,12 +511,12 @@ describe("SpaceRouter", () => {
         spacerouter
           .connect(alice)
           .addLiquidity(ethers.utils.parseEther("0"), { value: ONE_ETHER })
-      ).to.be.revertedWithCustomError(spacelp, "NotEnoughFundsProvided");
+      ).to.be.revertedWithCustomError(spacerouter, "InsufficientDeposit");
       await expect(
         spacerouter
           .connect(alice)
           .addLiquidity(FIVE_SPC, { value: ethers.utils.parseEther("0") })
-      ).to.be.revertedWithCustomError(spacelp, "NotEnoughFundsProvided");
+      ).to.be.revertedWithCustomError(spacerouter, "InsufficientDeposit");
 
       await spacerouter
         .connect(alice)
@@ -528,7 +528,7 @@ describe("SpaceRouter", () => {
         spacerouter
           .connect(alice)
           .addLiquidity(FIVE_SPC, { value: ethers.utils.parseEther("0") })
-      ).to.be.revertedWithCustomError(spacelp, "NotEnoughFundsProvided");
+      ).to.be.revertedWithCustomError(spacerouter, "InsufficientDeposit");
     });
 
     it("Adds liquidity with slightly more SPC - tax on", async () => {
@@ -885,7 +885,7 @@ describe("SpaceRouter", () => {
       await spacelp.connect(bob).approve(spacerouter.address, FIVE_SPC);
       await expect(
         spacerouter.connect(bob).removeLiquidity(0)
-      ).to.be.revertedWithCustomError(spacelp, "ZeroTokenBalance");
+      ).to.be.revertedWithCustomError(spacerouter, "ZeroLpTokenSent");
     });
 
     it("Reverts if total token supply = 0", async () => {

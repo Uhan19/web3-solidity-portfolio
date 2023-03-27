@@ -290,7 +290,7 @@ swap.addEventListener("submit", async (e) => {
   // TODO: Call router contract swap function
   try {
     if (swapIn.type === "eth") {
-      const price = await spaceLpContract.quoteSwapPrice(amountIn, 0);
+      const price = await spaceLpContract.getSwapPrice(amountIn, 0);
       const spcOutMin = price.sub(price.mul(maxSlippage).div(100));
       console.log(
         "form.amount_in.value",
@@ -303,7 +303,7 @@ swap.addEventListener("submit", async (e) => {
         });
       await swapTx.wait();
     } else if (swapIn.type === "spc") {
-      const price = await spaceLpContract.quoteSwapPrice(0, amountIn);
+      const price = await spaceLpContract.getSwapPrice(0, amountIn);
       const ethOutMin = price.sub(price.mul(maxSlippage).div(100));
       const approveTx = await spaceCoinContract
         .connect(signer)
