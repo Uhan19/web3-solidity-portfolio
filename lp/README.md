@@ -111,7 +111,7 @@ Protocal Risks
 > 2. Describe (using pseudocode) how you could add staking functionality to your LP.
 >    We could implement a staking functionality by first adding a contribute functions that allows the user to stake their LP token. The function can register how many tokens that they have contributed and mark a timestamp with the amount that they have staked. The contract should also have some way of determining how much rewards user should gain per token staked and the amount of time that the rewards have been staked.
 
-```
+```solidity
     // lock up period
     lockupPeriod = 7 days;
     bool lock;
@@ -139,10 +139,6 @@ Protocal Risks
       lock = false;
     }
 
-
-```
-
-```
   // function to calculate the rewards
   function calculateReward(uint amount) internal {
     // determine the award amount based on rate defined
