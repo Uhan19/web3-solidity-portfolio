@@ -4,8 +4,6 @@ pragma solidity 0.8.17;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./SpaceCoin.sol";
 
-import "hardhat/console.sol";
-
 contract SpaceLP is ERC20 {
 
     /// @notice The minimum amount of liquidity that must be provided to create a pool
