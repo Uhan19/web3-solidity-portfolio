@@ -7,10 +7,10 @@ import SpaceLPJSON from "../../artifacts/contracts/SpaceLP.sol/SpaceLP.json";
 const provider = new ethers.providers.Web3Provider(window.ethereum);
 const signer = provider.getSigner();
 
-const icoAddr = "0xa159A0cf7B1f3230036944113929Fde95Cf9Bf1c";
-const spaceCoinAddr = "0x835A6800A542CA83e12Ec02f343b463d0d2D1E8b";
-const routerAddr = "0x0131295D6c6a1E552D33076D94E381F78eff31c3";
-const lpAddress = "0x590B001fc3f63E4e9cF262daf768FB202359422b";
+const icoAddr = "0xd5B7a768a5BFc8c5e64605B2B339B61833C5A8b6";
+const spaceCoinAddr = "0xdFcb7bf63A19022c5B15284e615F7d693A8cbC57";
+const routerAddr = "0xAa7171d18f588DfF8A0a1b50AD2E0e882784BCc9";
+const lpAddress = "0x1DA96f80f17F286e96F53ad542A0aD19cDDb2032";
 
 const icoContract = new ethers.Contract(icoAddr, IcoJSON.abi, provider);
 
