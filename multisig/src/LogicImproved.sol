@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17;
 
 import "./Proxiable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 
 contract LogicImproved is Proxiable, OwnableUpgradeable {
     uint256 public someVariable;

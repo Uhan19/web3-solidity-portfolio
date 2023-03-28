@@ -15,14 +15,14 @@ Contracts have been deployed to Goerli at the following addresses:
 
 Transaction for transferring the ownership of the **Proxy** contract to the multisig:
 
-| Contract | Transaction Etherscan Link |
-| -------- | -------------------------- |
-| Proxy    | `FILL_ME_IN`               |
+| Contract | Transaction Etherscan Link                                                                          |
+| -------- | --------------------------------------------------------------------------------------------------- |
+| Proxy    | `https://goerli.etherscan.io/tx/0xa70efc976778e923504ae4bcafed270345e17cd472286a904d679ae01441c850` |
 
 Transaction calling `upgrade(address)` to upgrade the **Proxy** from **Logic** -> **LogicImproved**
 | Contract | Function called | Transaction Etherscan Link |
 | --------------- | --------------- | -- |
-| Proxy | `upgrade` | `FILL_ME_IN` |
+| Proxy | `upgrade` | `https://goerli.etherscan.io/tx/0x59dee544fc2c9196e8388015e408432f8579f171ab2b5e234e82d8e3a2cb43cc` |
 
 # Design exercise
 
