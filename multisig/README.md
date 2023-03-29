@@ -42,7 +42,6 @@ Transaction calling `upgrade(address)` to upgrade the **Proxy** from **Logic** -
 ### Disadvantages
 
 - Low security - the convenience is a double edged sword, since only one person is required for the tx, anyone can misuse funds or act in a dishonest way.
--
 
 ### M-of-N (where M: such that 1 < M < N)
 
