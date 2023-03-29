@@ -1,3 +1,5 @@
+Nice job on your LP project contracts! Your code is secure and easy to follow. I mad some suggestions for improvements. I think your code might be a bit easier to read if you save terinaries for simple operations and break up your code a bit. I opened a PR for you to see how I would break up concerns a bit. This makes your code easier for someone else to jump right into or for you to find your place when looking back to a routine: https://github.com/0xMacro/student.Uhan19/pull/1
+
 # SpaceLP.sol
 
 # Issues
