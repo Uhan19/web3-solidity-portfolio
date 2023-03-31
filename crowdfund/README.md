@@ -53,9 +53,19 @@ The goal here is to help you think through the possible edge cases of all your c
 
 ## Code Coverage Report
 
-<!-- Copy + paste your coverage report here before submitting your project -->
-<!-- You can see how to generate a coverage report in the "Solidity Code Coverage" section located here: -->
-<!-- https://learn.0xmacro.com/training/project-crowdfund/p/4 -->
+51 passing (7s)
+
+--------------------------------|----------|----------|----------|----------|----------------|
+File | % Stmts | % Branch | % Funcs | % Lines |Uncovered Lines |
+--------------------------------|----------|----------|----------|----------|----------------|
+contracts/ | 100 | 88.1 | 100 | 100 | |
+Project.sol | 100 | 88.1 | 100 | 100 | |
+ProjectFactory.sol | 100 | 100 | 100 | 100 | |
+contracts/malicious-contracts/ | 100 | 50 | 100 | 100 | |
+AttackProject.sol | 100 | 50 | 100 | 100 | |
+--------------------------------|----------|----------|----------|----------|----------------|
+All files | 100 | 86.36 | 100 | 100 | |
+--------------------------------|----------|----------|----------|----------|----------------|
 
 ## Design Exercise Answer
 
