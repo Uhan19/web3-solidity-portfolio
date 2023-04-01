@@ -8,11 +8,11 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 /// @notice This is a contract that will allow the user to create a crowdfunding campaign.
 contract Project is ERC721 {
     /// @notice The owner of the contract
-    address public owner;
+    address public immutable owner;
     /// @notice The funding goal of the campaign
-    uint256 public fundingGoal;
+    uint256 public immutable fundingGoal;
     /// @notice The deadline of the campaign
-    uint256 public deadline;
+    uint256 public immutable deadline;
     /// @notice The total amount raised by the campaign
     uint256 public totalAmountRaised;
     /// @notice The total amount withdrawn by the owner
@@ -34,7 +34,6 @@ contract Project is ERC721 {
 
     /// @notice constructor that sets the owner of the contract, the funding goal, and the deadline
     constructor(address _sender, uint256 _fundingGoal) ERC721("Fundr", "FDR") {
-        require(_sender != address(0), "Creator cannot be the zero address");
         owner = _sender;
         fundingGoal = _fundingGoal;
         deadline = block.timestamp + 30 days;
