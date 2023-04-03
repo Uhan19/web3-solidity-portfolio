@@ -38,11 +38,16 @@ contract Project is ERC721 {
         fundingGoal = _fundingGoal;
         deadline = block.timestamp + 30 days;
     }
-
+    
+    /// @notice events for when a contribution is made
     event NewContribution(address indexed _sender, uint256 _amount);
+    /// @notice events for when the owner withdraws funds
     event FundWithdrawn(address indexed _sender, uint256 _amount);
+    /// @notice events for when a contributor gets a refund
     event RefundSent(address indexed _sender, uint256 _amount);
+    /// @notice events for when a contributor claims NFT badges
     event NewBadgesMinted(address indexed _sender, uint256 _number);
+    /// @notice events for when the owner cancels the campaign
     event ProjectCanceled(address indexed _sender);
 
     error ReentrantError();
