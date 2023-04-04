@@ -1,10 +1,10 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.8.9;
+pragma solidity 0.8.17;
 
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 /// @title Airdrop
 /// @author Melvillian
@@ -43,6 +43,12 @@ contract Airdrop is Ownable {
     bytes32 public constant CLAIM_TYPEHASH =
         keccak256("Claim(address claimer,uint256 amount)");
 
+    /// @notice error for when ECDSA signatures are disabled by the owner
+    error ECDSAisDisabled(); 
+    error InvalidSignature(); 
+    error AlreadyClaimed();
+    error MacroTokenTransferFailed();
+
     /// @notice Sets the necessary initial claimer verification data
     constructor(
         bytes32 _root,
@@ -73,9 +79,19 @@ contract Airdrop is Ownable {
     /// @param signature An array of bytes representing a signature created by the
     /// `Airdrop.signer` address
     /// @param _to The address the claimed MACRO should be sent to
-    function signatureClaim(bytes calldata signature, address _to) external {
-        require(!isECDSADisabled, "SIGS_DISABLED");
+    function signatureClaim(bytes calldata signature, address _to, uint256 amount) external {
+        if (isECDSADisabled) revert ECDSAisDisabled();
         // TODO implement me!
+        // verify the signature
+        bytes32 messageHash = toTypedDataHash(msg.sender, amount);
+        address signerAddress = ECDSA.recover(messageHash, signature);
+        if (signerAddress != signer) revert InvalidSignature();
+        if (alreadyClaimed[_to]) revert AlreadyClaimed();
+        // update the claimed mapping
+        alreadyClaimed[_to] = true;
+        // transfer the token 
+        bool success = macroToken.transfer(_to, amount);
+        if (!success) revert MacroTokenTransferFailed();
     }
 
     /// @notice Allows a msg.sender to claim their MACRO token by providing a
