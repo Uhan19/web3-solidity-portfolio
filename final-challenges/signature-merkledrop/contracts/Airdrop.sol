@@ -4,7 +4,6 @@ pragma solidity 0.8.17;
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-// import "hardhat/console.sol";
 
 /// @title Airdrop
 /// @author Melvillian
@@ -51,7 +50,7 @@ contract Airdrop is Ownable {
     error InvalidSignature(); 
     error AlreadyClaimed();
     error MacroTokenTransferFailed();
-    error InvalidMerkleProof(bytes32 hash);
+    error InvalidMerkleProof(bytes32 hash, bytes32 root);
 
     /// @notice Sets the necessary initial claimer verification data
     constructor(
@@ -95,7 +94,7 @@ contract Airdrop is Ownable {
         alreadyClaimed[_to] = true;
         // transfer the token 
         bool success = macroToken.transfer(_to, amount);
-        if (!success) revert MacroTokenTransferFailed();
+        if (!success) revert MacroTokenTransferFailed();  
     }
 
     /// @notice Allows a msg.sender to claim their MACRO token by providing a
@@ -107,7 +106,7 @@ contract Airdrop is Ownable {
     /// is included in the Merkle tree represented by `Airdrop.merkleRoot`
     /// @param _to The address the claimed MACRO should be sent to
     /// @param _amount The amount of MACRO to claim
-    function merkleClaim(bytes32[] calldata _proof, address _to, uint _amount) external {
+    function merkleClaim(bytes32[] calldata _proof, address _to, uint256 _amount) external {
         // TODO implement me!
         // get the leaf node
         bytes32 nodeHash = toLeafFormat(msg.sender, _amount);
@@ -120,7 +119,7 @@ contract Airdrop is Ownable {
                 nodeHash = keccak256(abi.encodePacked(proof, nodeHash));
             }
         }
-        if (nodeHash != merkleRoot) revert InvalidMerkleProof(nodeHash);
+        if (nodeHash != merkleRoot) revert InvalidMerkleProof(nodeHash, merkleRoot);
         if (alreadyClaimed[_to]) revert AlreadyClaimed();
         // update the claimed mapping
         alreadyClaimed[_to] = true;
