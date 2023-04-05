@@ -43,11 +43,15 @@ contract Airdrop is Ownable {
     bytes32 public constant CLAIM_TYPEHASH =
         keccak256("Claim(address claimer,uint256 amount)");
 
+    /// @notice event emitted when the owner disables ECDSA signatures
+    event ECDSADisabled(address owner);
+
     /// @notice error for when ECDSA signatures are disabled by the owner
-    error ECDSAisDisabled(); 
+    error ECDSANoLongerInUse(); 
     error InvalidSignature(); 
     error AlreadyClaimed();
     error MacroTokenTransferFailed();
+    error InvalidMerkleProof(bytes32 hash);
 
     /// @notice Sets the necessary initial claimer verification data
     constructor(
@@ -80,7 +84,7 @@ contract Airdrop is Ownable {
     /// `Airdrop.signer` address
     /// @param _to The address the claimed MACRO should be sent to
     function signatureClaim(bytes calldata signature, address _to, uint256 amount) external {
-        if (isECDSADisabled) revert ECDSAisDisabled();
+        if (isECDSADisabled) revert ECDSANoLongerInUse();
         // TODO implement me!
         // verify the signature
         bytes32 messageHash = toTypedDataHash(msg.sender, amount);
@@ -102,8 +106,27 @@ contract Airdrop is Ownable {
     /// @param _proof An array of keccak hashes used to prove msg.sender's address
     /// is included in the Merkle tree represented by `Airdrop.merkleRoot`
     /// @param _to The address the claimed MACRO should be sent to
-    function merkleClaim(bytes32[] calldata _proof, address _to) external {
+    /// @param _amount The amount of MACRO to claim
+    function merkleClaim(bytes32[] calldata _proof, address _to, uint _amount) external {
         // TODO implement me!
+        // get the leaf node
+        bytes32 nodeHash = toLeafFormat(msg.sender, _amount);
+        // need to traverse up the tree to get the root
+        for (uint256 i = 0; i < _proof.length; ++i) {
+            bytes32 proof = _proof[i];
+            if(nodeHash < proof) {
+                nodeHash = keccak256(abi.encodePacked(nodeHash, proof));
+            } else {
+                nodeHash = keccak256(abi.encodePacked(proof, nodeHash));
+            }
+        }
+        if (nodeHash != merkleRoot) revert InvalidMerkleProof(nodeHash);
+        if (alreadyClaimed[_to]) revert AlreadyClaimed();
+        // update the claimed mapping
+        alreadyClaimed[_to] = true;
+        // transfer the token
+        bool success = macroToken.transfer(_to, _amount);
+        if (!success) revert MacroTokenTransferFailed();
     }
 
     /// @notice Causes `Airdrop.signatureClaim` to always revert
@@ -142,6 +165,4 @@ contract Airdrop is Ownable {
     {
         return keccak256(bytes(abi.encode(_claimer, _amount)));
     }
-
-    event ECDSADisabled(address owner);
 }
