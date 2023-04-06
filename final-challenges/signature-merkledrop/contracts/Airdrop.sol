@@ -47,7 +47,7 @@ contract Airdrop is Ownable {
 
     /// @notice error for when ECDSA signatures are disabled by the owner
     error ECDSANoLongerInUse(); 
-    error InvalidSignature(); 
+    error InvalidSignature(address signer, address expectedSigner); 
     error AlreadyClaimed();
     error MacroTokenTransferFailed();
     error InvalidMerkleProof(bytes32 hash, bytes32 root);
@@ -88,7 +88,7 @@ contract Airdrop is Ownable {
         // verify the signature
         bytes32 messageHash = toTypedDataHash(msg.sender, amount);
         address signerAddress = ECDSA.recover(messageHash, signature);
-        if (signerAddress != signer) revert InvalidSignature();
+        if (signerAddress != signer) revert InvalidSignature(signerAddress, signer);
         if (alreadyClaimed[_to]) revert AlreadyClaimed();
         // update the claimed mapping
         alreadyClaimed[_to] = true;

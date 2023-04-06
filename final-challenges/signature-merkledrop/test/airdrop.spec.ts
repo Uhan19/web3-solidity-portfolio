@@ -7,6 +7,11 @@ import {
   defaultAbiCoder,
   solidityPack,
   parseEther,
+  arrayify,
+  recoverAddress,
+  hashMessage,
+  verifyMessage,
+  splitSignature,
 } from "ethers/lib/utils";
 import { BigNumber } from "ethers";
 
@@ -98,6 +103,28 @@ const verify = (address: string, amount: BigNumber) => {
 };
 
 describe("Airdrop", function () {
+  const setupFixture = async () => {
+    const chainId = await ethers.provider.getNetwork().then((n) => n.chainId);
+
+    const domainType = {
+      name: "Airdrop",
+      version: "v1",
+      chainId,
+      verifyingContract: airdrop.address,
+    };
+
+    const claimType = {
+      Claim: [
+        { name: "claimer", type: "address" },
+        { name: "amount", type: "uint256" },
+      ],
+    };
+
+    return {
+      domainType,
+      claimType,
+    };
+  };
   before(async () => {
     [account1, account2, ...rest] = await ethers.getSigners();
 
@@ -165,11 +192,165 @@ describe("Airdrop", function () {
         .to.emit(macroToken, "Transfer")
         .withArgs(airdrop.address, signerAddress, amount);
     });
+
+    it("Should be able to claim token using merkleClaim - send token to different address", async () => {
+      const amount = parseEther("20");
+      const signer = rest[1];
+      const signerAddress = await signer.getAddress();
+      const receiver = rest[8];
+      const receiverAddress = await receiver.getAddress();
+      const encoded = defaultAbiCoder.encode(
+        ["address", "uint256"],
+        [signerAddress, amount]
+      );
+      let nodeHash = keccak256(solidityPack(["bytes"], [encoded]));
+      const proof = generateMerkleProof(leaves, nodeHash);
+      await macroToken.mint(airdrop.address, amount);
+      await expect(
+        await airdrop
+          .connect(signer)
+          .merkleClaim(proof, receiverAddress, amount)
+      )
+        .to.emit(macroToken, "Transfer")
+        .withArgs(airdrop.address, receiverAddress, amount);
+    });
+
+    it("Should be able to claim token using merkleClaim - different signer", async () => {
+      const amount = parseEther("30");
+      const signer = rest[2];
+      const signerAddress = await signer.getAddress();
+      const encoded = defaultAbiCoder.encode(
+        ["address", "uint256"],
+        [signerAddress, amount]
+      );
+      let nodeHash = keccak256(solidityPack(["bytes"], [encoded]));
+      const proof = generateMerkleProof(leaves, nodeHash);
+      await macroToken.mint(airdrop.address, amount);
+      await expect(
+        await airdrop.connect(signer).merkleClaim(proof, signerAddress, amount)
+      )
+        .to.emit(macroToken, "Transfer")
+        .withArgs(airdrop.address, signerAddress, amount);
+    });
+
+    it("revert if already claimed", async () => {
+      const amount = parseEther("10");
+      const signer = rest[0];
+      const signerAddress = await signer.getAddress();
+      const encoded = defaultAbiCoder.encode(
+        ["address", "uint256"],
+        [signerAddress, amount]
+      );
+      let nodeHash = keccak256(solidityPack(["bytes"], [encoded]));
+      const proof = generateMerkleProof(leaves, nodeHash);
+      await macroToken.mint(airdrop.address, amount);
+      await expect(
+        airdrop.connect(signer).merkleClaim(proof, signerAddress, amount)
+      )
+        .to.emit(macroToken, "Transfer")
+        .withArgs(airdrop.address, signerAddress, amount);
+      await expect(
+        airdrop.connect(signer).merkleClaim(proof, signerAddress, amount)
+      ).to.be.revertedWithCustomError(airdrop, "AlreadyClaimed");
+    });
+
+    it("revert if already wrong amount is passed in", async () => {
+      const amount = parseEther("11");
+      const signer = rest[0];
+      const signerAddress = await signer.getAddress();
+      const encoded = defaultAbiCoder.encode(
+        ["address", "uint256"],
+        [signerAddress, amount]
+      );
+      let nodeHash = keccak256(solidityPack(["bytes"], [encoded]));
+      const proof = generateMerkleProof(leaves, nodeHash);
+      await macroToken.mint(airdrop.address, amount);
+      await expect(
+        airdrop.connect(signer).merkleClaim(proof, signerAddress, amount)
+      ).to.be.revertedWithCustomError(airdrop, "InvalidMerkleProof");
+    });
+
+    it("revert if address is not part of the merkle tree", async () => {
+      const amount = parseEther("10");
+      const signer = rest[0];
+      const invalidSigner = rest[11];
+      const signerAddress = await signer.getAddress();
+      const fakeAddress = await invalidSigner.getAddress();
+      const encoded = defaultAbiCoder.encode(
+        ["address", "uint256"],
+        [signerAddress, amount]
+      );
+      let nodeHash = keccak256(solidityPack(["bytes"], [encoded]));
+      const proof = generateMerkleProof(leaves, nodeHash);
+      await macroToken.mint(airdrop.address, amount);
+      await expect(
+        airdrop.connect(invalidSigner).merkleClaim(proof, fakeAddress, amount)
+      ).to.be.revertedWithCustomError(airdrop, "InvalidMerkleProof");
+    });
   });
 
   describe("Signature claiming", () => {
-    it("TODO", async () => {
-      throw new Error("TODO: add more tests here!");
+    it("Should allow signature claim", async () => {
+      const { domainType, claimType } = await setupFixture();
+      const amount = parseEther("10");
+      const claimer = rest[0];
+      const claimerAddress = await claimer.getAddress();
+      const message = {
+        claimer: claimerAddress,
+        amount: amount.toString(),
+      };
+
+      // Sign the typed data
+      const sig = await account1._signTypedData(domainType, claimType, message);
+      await macroToken.mint(airdrop.address, amount);
+      await expect(
+        airdrop.connect(claimer).signatureClaim(sig, claimerAddress, amount)
+      )
+        .to.emit(macroToken, "Transfer")
+        .withArgs(airdrop.address, claimerAddress, amount);
+    });
+
+    it("Revert if token already claimed", async () => {
+      const { domainType, claimType } = await setupFixture();
+      const amount = parseEther("10");
+      const claimer = rest[0];
+      const claimerAddress = await claimer.getAddress();
+      const message = {
+        claimer: claimerAddress,
+        amount: amount.toString(),
+      };
+
+      // Sign the typed data
+      const sig = await account1._signTypedData(domainType, claimType, message);
+      await macroToken.mint(airdrop.address, amount);
+      await expect(
+        airdrop.connect(claimer).signatureClaim(sig, claimerAddress, amount)
+      )
+        .to.emit(macroToken, "Transfer")
+        .withArgs(airdrop.address, claimerAddress, amount);
+
+      await expect(
+        airdrop.connect(claimer).signatureClaim(sig, claimerAddress, amount)
+      ).to.be.revertedWithCustomError(airdrop, "AlreadyClaimed");
+    });
+
+    it("Revert if signature is the wrong type", async () => {
+      const { domainType, claimType } = await setupFixture();
+      const amount = parseEther("10");
+      const claimer = rest[0];
+      const claimerAddress = await claimer.getAddress();
+      const message = {
+        claimer: claimerAddress,
+        amount: amount.toString(),
+      };
+
+      // Sign the typed data
+      const sig =
+        "0x6ed965f6f0d4ddb4b431754eec3ea2fcde76e54dc464ea92e0629fcd34e4fecc1da270c5279b806d350d71cda024d143f517169a97411f03dda78210175e21941b";
+      await macroToken.mint(airdrop.address, amount);
+      await expect(
+        airdrop.connect(claimer).signatureClaim(sig, claimerAddress, amount)
+      ).to.be.revertedWithCustomError(airdrop, "InvalidSignature");
     });
   });
 });
