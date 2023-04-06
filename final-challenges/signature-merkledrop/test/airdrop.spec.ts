@@ -7,11 +7,6 @@ import {
   defaultAbiCoder,
   solidityPack,
   parseEther,
-  arrayify,
-  recoverAddress,
-  hashMessage,
-  verifyMessage,
-  splitSignature,
 } from "ethers/lib/utils";
 import { BigNumber } from "ethers";
 
