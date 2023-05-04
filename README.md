@@ -1,5 +1,3 @@
-## Macro Project Repo
+## Web3 Solidity Portfolio
 
-This is the repo for all your projects in the course. Check out each project's individual README.md for more info.
-
-Access the curriculum here: https://learn.0xmacro.com/
+This is a repo with various web3 projects I have worked on as part of the Macro engineering fellowship. Please see each folder for details on the projects.
